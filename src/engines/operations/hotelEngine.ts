@@ -1,0 +1,182 @@
+/**
+ * Hotel operation engine.
+ * This will generate monthly and annual P&L statements for hotel operations.
+ */
+
+import type {
+  HotelConfig,
+  MonthlyPnl,
+  AnnualPnl,
+} from '@domain/types';
+import { getSeasonalityCurve, applySeasonality, applyRampUp } from './utils';
+
+export interface HotelEngineResult {
+  monthlyPnl: MonthlyPnl[];
+  annualPnl: AnnualPnl[];
+}
+
+/**
+ * Runs the hotel operation engine to generate monthly and annual P&L statements.
+ *
+ * @param config - Hotel configuration
+ * @returns Monthly and annual P&L results
+ */
+export function runHotelEngine(config: HotelConfig): HotelEngineResult {
+  const monthlyPnl: MonthlyPnl[] = [];
+  const DAYS_PER_MONTH = 30;
+
+  // Get normalized seasonality curve (v3.5: Operational Logic)
+  const seasonalityCurve = getSeasonalityCurve(config.seasonalityCurve);
+
+  // Loop over all years
+  for (let yearIndex = 0; yearIndex < config.horizonYears; yearIndex++) {
+    // Loop over all months in the year
+    for (let monthIndex = 0; monthIndex < 12; monthIndex++) {
+      // Calculate absolute month number (for ramp-up calculation)
+      const absoluteMonth = yearIndex * 12 + monthIndex;
+      
+      const baseOccupancy = config.occupancyByMonth[monthIndex];
+
+      // Apply seasonality to occupancy (v3.5: Operational Logic)
+      const adjustedOccupancy = applySeasonality(baseOccupancy, monthIndex, seasonalityCurve);
+      
+      // v5.2: Apply ramp-up to occupancy if configured
+      const rampUpConfig = config.rampUpConfig;
+      const occupancyAfterRampUp = rampUpConfig?.applyToOccupancy !== false
+        ? applyRampUp(adjustedOccupancy, absoluteMonth, rampUpConfig)
+        : adjustedOccupancy;
+      
+      // Clamp occupancy to [0, 1] range
+      const occupancy = Math.max(0, Math.min(1, occupancyAfterRampUp));
+
+      // Calculate occupied rooms
+      const occupiedRooms = config.keys * occupancy * DAYS_PER_MONTH;
+
+      // Revenue calculations
+      let roomRevenue = occupiedRooms * config.avgDailyRate;
+      let foodRevenue = roomRevenue * config.foodRevenuePctOfRooms;
+      let beverageRevenue = roomRevenue * config.beverageRevenuePctOfRooms;
+      let otherRevenue = roomRevenue * config.otherRevenuePctOfRooms;
+      let totalRevenue = roomRevenue + foodRevenue + beverageRevenue + otherRevenue;
+      
+      // v5.2: Apply ramp-up to revenue if configured
+      if (rampUpConfig?.applyToRevenue) {
+        totalRevenue = applyRampUp(totalRevenue, absoluteMonth, rampUpConfig);
+        // Proportionally adjust revenue components
+        const revenueFactor = totalRevenue > 0 ? totalRevenue / (roomRevenue + foodRevenue + beverageRevenue + otherRevenue) : 0;
+        roomRevenue = roomRevenue * revenueFactor;
+        foodRevenue = foodRevenue * revenueFactor;
+        beverageRevenue = beverageRevenue * revenueFactor;
+        otherRevenue = otherRevenue * revenueFactor;
+      }
+
+      // COGS calculations
+      const foodCogs = foodRevenue * config.foodCogsPct;
+      const beverageCogs = beverageRevenue * config.beverageCogsPct;
+
+      // Commissions calculation (v1.2.3: Engine Drivers Logic)
+      // Commissions are calculated as % of room revenue and included in departmental expenses
+      const commissionsPct = config.commissionsPct ?? 0;
+      const commissions = roomRevenue * commissionsPct;
+
+      // Opex calculations (v3.5: Fixed + Variable model)
+      // Payroll = Fixed + (Variable % of revenue)
+      const fixedPayroll = config.fixedPayroll ?? 0;
+      const variablePayroll = totalRevenue * config.payrollPct;
+      const payroll = fixedPayroll + variablePayroll;
+
+      // Other expenses = Fixed + (Variable % of revenue)
+      const fixedOtherExpenses = config.fixedOtherExpenses ?? 0;
+      const variableOtherExpenses = totalRevenue * config.otherOpexPct;
+      const otherOpex = fixedOtherExpenses + variableOtherExpenses;
+
+      // Other opex items remain as % of totalRevenue
+      const utilities = totalRevenue * config.utilitiesPct;
+      const marketing = totalRevenue * config.marketingPct;
+      const maintenanceOpex = totalRevenue * config.maintenanceOpexPct;
+      
+      const totalOpex = payroll + utilities + marketing + maintenanceOpex + otherOpex;
+
+      // Maintenance capex
+      const maintenanceCapex = totalRevenue * config.maintenanceCapexPct;
+
+      // Profitability calculations
+      // GOP = Revenue - Departmental Expenses (COGS + Commissions)
+      const departmentalExpenses = foodCogs + beverageCogs + commissions;
+      const grossOperatingProfit = totalRevenue - departmentalExpenses;
+      const ebitda = grossOperatingProfit - totalOpex;
+      const noi = ebitda - maintenanceCapex;
+
+      // Cash flow proxy (for now, this equals NOI)
+      const cashFlow = noi;
+
+      // Create monthly P&L entry
+      const monthly: MonthlyPnl = {
+        yearIndex,
+        monthIndex,
+        operationId: config.id,
+        roomRevenue,
+        foodRevenue,
+        beverageRevenue,
+        otherRevenue,
+        foodCogs,
+        beverageCogs,
+        payroll,
+        utilities,
+        marketing,
+        maintenanceOpex,
+        otherOpex,
+        grossOperatingProfit,
+        ebitda,
+        noi,
+        maintenanceCapex,
+        cashFlow,
+      };
+
+      monthlyPnl.push(monthly);
+    }
+  }
+
+  // Aggregate monthly P&L into annual P&L
+  const annualPnl: AnnualPnl[] = [];
+
+  for (let yearIndex = 0; yearIndex < config.horizonYears; yearIndex++) {
+    // Get all months for this year
+    const yearMonths = monthlyPnl.filter((m) => m.yearIndex === yearIndex);
+
+    // Sum all metrics for the year
+    const revenueTotal = yearMonths.reduce((sum, m) => sum + m.roomRevenue + m.foodRevenue + m.beverageRevenue + m.otherRevenue, 0);
+    // Calculate commissions for the year (v1.2.3: Engine Drivers Logic)
+    const commissionsTotal = yearMonths.reduce((sum, m) => {
+      const roomRevenue = m.roomRevenue;
+      const commissionsPct = config.commissionsPct ?? 0;
+      return sum + (roomRevenue * commissionsPct);
+    }, 0);
+    // Departmental expenses include COGS + Commissions
+    const cogsTotal = yearMonths.reduce((sum, m) => sum + m.foodCogs + m.beverageCogs, 0) + commissionsTotal;
+    const opexTotal = yearMonths.reduce((sum, m) => sum + m.payroll + m.utilities + m.marketing + m.maintenanceOpex + m.otherOpex, 0);
+    const ebitda = yearMonths.reduce((sum, m) => sum + m.ebitda, 0);
+    const noi = yearMonths.reduce((sum, m) => sum + m.noi, 0);
+    const maintenanceCapex = yearMonths.reduce((sum, m) => sum + m.maintenanceCapex, 0);
+    const cashFlow = yearMonths.reduce((sum, m) => sum + m.cashFlow, 0);
+
+    const annual: AnnualPnl = {
+      yearIndex,
+      operationId: config.id,
+      revenueTotal,
+      cogsTotal,
+      opexTotal,
+      ebitda,
+      noi,
+      maintenanceCapex,
+      cashFlow,
+    };
+
+    annualPnl.push(annual);
+  }
+
+  return {
+    monthlyPnl,
+    annualPnl,
+  };
+}

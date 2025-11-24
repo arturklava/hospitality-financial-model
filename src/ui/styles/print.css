@@ -1,0 +1,161 @@
+/**
+ * Print-friendly styles for v0.7 Reporting Module
+ * 
+ * Hides navigation, buttons, and interactive elements when printing.
+ * Formats content for A4/Letter paper size.
+ */
+
+@media print {
+  /* Hide non-essential elements */
+  .app-header button,
+  .scenario-library-section,
+  .scenario-comparison-section,
+  .controls-column button,
+  .sensitivity-panel button,
+  .no-print {
+    display: none !important;
+  }
+
+  /* Hide sidebar and interactive controls */
+  .scenario-selector,
+  .scenario-library-section,
+  .scenario-comparison-section {
+    display: none !important;
+  }
+
+  /* Print header - only visible in print */
+  .print-header {
+    display: block !important;
+    text-align: center;
+    margin-bottom: 2rem;
+    padding-bottom: 1rem;
+    border-bottom: 2px solid #333;
+  }
+
+  .print-header h1 {
+    margin: 0;
+    font-size: 1.5rem;
+    color: #000;
+  }
+
+  .print-header .print-subtitle {
+    margin-top: 0.5rem;
+    font-size: 0.9rem;
+    color: #666;
+  }
+
+  /* Page setup */
+  @page {
+    size: A4;
+    margin: 2cm 1.5cm;
+  }
+
+  /* Ensure proper page breaks */
+  .app-main > section,
+  .app-main > div {
+    page-break-inside: avoid;
+  }
+
+  .kpi-grid,
+  .kpi-card {
+    page-break-inside: avoid;
+  }
+
+  /* Charts and tables */
+  .charts-container,
+  table {
+    page-break-inside: avoid;
+  }
+
+  /* Remove background colors for better printing */
+  .kpi-card,
+  .kpi-item {
+    background: white !important;
+    border: 1px solid #ddd !important;
+  }
+
+  /* Ensure text is black for printing */
+  body,
+  .app {
+    color: #000 !important;
+    background: white !important;
+  }
+
+  /* Adjust font sizes for print */
+  .app {
+    max-width: 100%;
+    padding: 0;
+  }
+
+  .app-header {
+    margin-bottom: 1.5rem;
+  }
+
+  .app-header h1 {
+    font-size: 1.5rem;
+  }
+
+  /* Table styling for print */
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 0.85rem;
+  }
+
+  table th,
+  table td {
+    border: 1px solid #000;
+    padding: 0.5rem;
+  }
+
+  table th {
+    background: #f0f0f0 !important;
+    font-weight: bold;
+  }
+
+  /* Sensitivity heatmap styling for print */
+  .sensitivity-panel table {
+    font-size: 0.75rem;
+  }
+
+  .sensitivity-panel table th,
+  .sensitivity-panel table td {
+    padding: 0.3rem;
+  }
+
+  /* Hide print button in print view */
+  .print-button {
+    display: none !important;
+  }
+
+  /* Ensure charts scale properly */
+  svg,
+  canvas {
+    max-width: 100%;
+    height: auto;
+  }
+
+  /* Section headers */
+  h2 {
+    page-break-after: avoid;
+    margin-top: 1.5rem;
+    margin-bottom: 1rem;
+  }
+
+  h3 {
+    page-break-after: avoid;
+  }
+
+  /* Prevent orphaned content */
+  p,
+  li {
+    orphans: 3;
+    widows: 3;
+  }
+}
+
+/* Print header - hidden by default, shown only in print */
+.print-header {
+  display: none;
+}
+
