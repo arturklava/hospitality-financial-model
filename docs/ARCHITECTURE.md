@@ -8,6 +8,8 @@ Hospitality multi-operation financial modeling engine that calculates cash flows
 
 **Tech Stack**: TypeScript (strict mode), Vite, React, Vitest
 
+**Glossary**: For definitions of ADR, RevPAR, NOI, MOIC, and other KPIs used throughout this pipeline, see `docs/GLOSSARY.md`.
+
 ---
 
 ## Pipeline Flow
