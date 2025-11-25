@@ -50,6 +50,14 @@ The complete data flow is a **numbered sequence**:
    - Output: Renders KPI cards and tables (Unlevered FCF, Equity Waterfall)
    - Calls `runFullModel` (from `modelPipeline.ts`) with model input configuration
 
+### Pipeline contracts (sanity checklist)
+
+To prevent cross-engine drift, the pipeline enforces these light-weight contracts:
+
+- Scenario → Project: `consolidatedAnnualPnl.length` must equal `scenario.horizonYears`, with `yearIndex` values 0..N-1. `consolidatedMonthlyPnl` must include `horizonYears * 12` entries.
+- Project → Capital: `unleveredFcf.length` must match the consolidated P&L year count and cover the same year indexes.
+- Capital → Waterfall: `leveredFcfByYear.length` must equal the P&L/FCF year count; `ownerLeveredCashFlows.length` must be year count + 1 (Year 0 + projection years).
+
 ---
 
 ## Domain Types

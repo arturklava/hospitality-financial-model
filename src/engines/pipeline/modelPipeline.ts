@@ -27,6 +27,11 @@ import { runScenarioEngine } from '@engines/scenario/scenarioEngine';
 import { runProjectEngine } from '@engines/project/projectEngine';
 import { runCapitalEngine } from '@engines/capital/capitalEngine';
 import { applyEquityWaterfall } from '@engines/waterfall/waterfallEngine';
+import {
+  validateCapitalToWaterfallContract,
+  validateProjectToCapitalContract,
+  validateScenarioToProjectContract,
+} from './contracts';
 
 /**
  * Full top-down financial pipeline:
@@ -49,6 +54,8 @@ export function runFullModel(input: FullModelInput): FullModelOutput {
   const consolidated: ConsolidatedAnnualPnl[] = scenarioData.consolidatedAnnualPnl;
   const allOperationsAnnualPnl: AnnualPnl[] = scenarioData.operations.flatMap((op) => op.annualPnl);
 
+  validateScenarioToProjectContract(scenario, scenarioData);
+
   // 2. Project engine: UFCF + DCF valuation + project KPIs
   // v0.7: Pass capitalConfig to enable WACC calculation
   const projectResult = runProjectEngine(
@@ -60,6 +67,8 @@ export function runFullModel(input: FullModelInput): FullModelOutput {
   if (!projectResult.ok) {
     throw new Error(`Project engine failed: ${projectResult.error.message}`);
   }
+
+  validateProjectToCapitalContract(consolidated, projectResult.data);
 
   // 3. Capital engine: debt schedule + levered FCF
   // v2.2: Pass monthly P&L for monthly debt schedule and cash flow calculation
@@ -75,6 +84,8 @@ export function runFullModel(input: FullModelInput): FullModelOutput {
     capitalResult.ownerLeveredCashFlows,
     waterfallConfig
   );
+
+  validateCapitalToWaterfallContract(consolidated.length, capitalResult);
 
   // 5. Return full pipeline result
   return {
