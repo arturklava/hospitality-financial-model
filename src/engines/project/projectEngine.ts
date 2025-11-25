@@ -41,11 +41,16 @@ const consolidatedPnlArraySchema = z.array(consolidatedAnnualPnlSchema).min(1);
  * @param capitalConfig - Optional capital structure configuration (for WACC calculation)
  * @returns Unlevered FCF, DCF valuation, and project KPIs
  */
+export interface ProjectEngineRunResult extends ProjectEngineResult {
+  auditTrace: DetailedAuditTrace[];
+  warnings: string[];
+}
+
 export function runProjectEngine(
   consolidatedPnl: ConsolidatedAnnualPnl[],
   config: ProjectConfig,
   capitalConfig?: CapitalStructureConfig
-): EngineResult<ProjectEngineResult> {
+): EngineResult<ProjectEngineRunResult> {
   const parsedPnl = consolidatedPnlArraySchema.safeParse(consolidatedPnl);
   if (!parsedPnl.success) {
     return engineFailure(
@@ -341,15 +346,18 @@ export function runProjectEngine(
     source: 'projectEngine',
   });
 
-  return engineSuccess(
-    {
-      unleveredFcf,
-      dcfValuation,
-      projectKpis,
-    },
+  const data: ProjectEngineRunResult = {
+    unleveredFcf,
+    dcfValuation,
+    projectKpis,
     auditTrace,
-    warnings
-  );
+    warnings,
+  };
+
+  // Return an EngineSuccess while also spreading data fields at the top level so
+  // callers can access properties directly (legacy behavior) or through data.
+  const success = engineSuccess(data, auditTrace, warnings);
+  return { ...success, ...data };
 }
 
 /**
