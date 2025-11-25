@@ -24,9 +24,9 @@ export function AssetKpiCard({ operation, modelOutput, kpiType }: AssetKpiCardPr
       // Re-run scenario engine to get operation results
       // FullModelOutput.scenario is ProjectScenario (config), not ScenarioEngineResult
       const scenarioResult = runScenarioEngine(modelOutput.scenario);
-      if (!scenarioResult?.operations) return null;
-      
-      const operationResult = scenarioResult.operations.find(op => op.operationId === operation.id);
+      if (!scenarioResult.ok) return null;
+
+      const operationResult = scenarioResult.data.operations.find(op => op.operationId === operation.id);
       if (!operationResult?.annualPnl || operationResult.annualPnl.length === 0) return null;
       
       const year1Pnl = operationResult.annualPnl.find(pnl => pnl.yearIndex === 0);

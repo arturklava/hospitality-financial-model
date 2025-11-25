@@ -48,22 +48,28 @@ export interface FullPipelineResult {
 export function runFullPipeline(input: FullPipelineInput): FullPipelineResult {
   // 1) Run scenario engine: Operations → Consolidated Annual P&L
   const scenarioResult = runScenarioEngine(input.scenario);
+  if (!scenarioResult.ok) {
+    throw new Error('Scenario engine failed during full pipeline execution');
+  }
 
   // 2) Run project engine: Consolidated P&L → Unlevered FCF + DCF + Project KPIs
   // v0.7: Pass capitalConfig to enable WACC calculation
   const projectResult = runProjectEngine(
-    scenarioResult.consolidatedAnnualPnl,
+    scenarioResult.data.consolidatedAnnualPnl,
     input.projectConfig,
     input.capitalConfig
   );
+  if (!projectResult.ok) {
+    throw new Error('Project engine failed during full pipeline execution');
+  }
 
   // 3) Run capital engine: Consolidated P&L + Unlevered FCF → Debt Schedule + Levered FCF
   // v2.2: Pass monthly P&L for monthly debt schedule and cash flow calculation
   const capitalResult = runCapitalEngine(
-    scenarioResult.consolidatedAnnualPnl,
-    projectResult.unleveredFcf,
+    scenarioResult.data.consolidatedAnnualPnl,
+    projectResult.data.unleveredFcf,
     input.capitalConfig,
-    scenarioResult.consolidatedMonthlyPnl
+    scenarioResult.data.consolidatedMonthlyPnl
   );
 
   // 4) Run waterfall engine: Owner Levered Cash Flows → Partner Distributions
@@ -73,8 +79,8 @@ export function runFullPipeline(input: FullPipelineInput): FullPipelineResult {
   );
 
   return {
-    scenarioResult,
-    projectResult,
+    scenarioResult: scenarioResult.data,
+    projectResult: projectResult.data,
     capitalResult,
     waterfallResult,
   };

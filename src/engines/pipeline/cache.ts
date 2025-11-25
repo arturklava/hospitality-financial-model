@@ -34,7 +34,7 @@ export class PipelineCache {
       hash,
       value,
       timestamp: Date.now(),
-    };
+    } as CacheStore[K];
     if (!previous || previous.hash !== hash) {
       this.invalidateDependents(segment);
     }

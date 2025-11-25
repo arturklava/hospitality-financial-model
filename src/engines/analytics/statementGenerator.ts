@@ -42,7 +42,9 @@ export function filterAndAggregatePnl(
 ): ConsolidatedAnnualPnl[] {
   // Re-run scenario engine to get individual operation results
   const scenarioResult = runScenarioEngine(output.scenario);
-  const { operations } = scenarioResult;
+  if (!scenarioResult.ok) return [];
+
+  const { operations } = scenarioResult.data;
   
   const horizonYears = output.scenario.horizonYears;
   

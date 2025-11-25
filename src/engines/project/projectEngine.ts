@@ -77,7 +77,7 @@ export function runProjectEngine(
           {
             field: 'project_config_validation',
             formula: 'Zod schema validation',
-            values: { workingCapitalPercentage: config.workingCapitalPercentage },
+            values: { workingCapitalPercentage: config.workingCapitalPercentage ?? 0 },
             result: 0,
             source: 'projectEngine',
           },

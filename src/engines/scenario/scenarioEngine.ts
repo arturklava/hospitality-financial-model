@@ -190,12 +190,12 @@ export interface ScenarioEngineResult {
 function buildScenarioAuditTrace(
   field: string,
   scenarioId: string,
-  values: Record<string, number | string | undefined>
+  values: Record<string, number | string>
 ): DetailedAuditTrace {
   return {
     field,
     formula: 'Scenario engine aggregation and validation',
-    values,
+    values: { scenarioId, ...values },
     result: 1,
     source: 'scenarioEngine',
     calculationStep: field,

@@ -53,7 +53,7 @@ export function ScenarioSummaryPanel({ consolidatedAnnualPnl, fullOutput }: Scen
         }))
       : Object.entries(auditTrace.values).map(([key, value]) => ({
           label: key.charAt(0).toUpperCase() + key.slice(1),
-          value: formatCurrency(value),
+          value: typeof value === 'number' ? formatCurrency(value) : String(value),
         }));
 
     const inspectorData: InspectorData = {
