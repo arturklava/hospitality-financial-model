@@ -35,6 +35,7 @@ function App() {
     exportJson,
     savedVersions,
     loadVersion,
+    errorMessage,
   } = useFinancialModel();
   
   // v5.8: Get scenarios from scenario library to include default scenarios (base, upside, stress)
@@ -97,6 +98,41 @@ function App() {
 
   // Run the model whenever input changes
   const modelOutput = runModel();
+
+  if (errorMessage) {
+    return (
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        height: '100vh',
+        width: '100%',
+        padding: '1.5rem',
+        backgroundColor: 'var(--bg-primary, #f8fafc)',
+      }}>
+        <div style={{
+          maxWidth: '720px',
+          width: '100%',
+          backgroundColor: 'white',
+          border: '1px solid var(--border-soft, #e2e8f0)',
+          borderRadius: '12px',
+          padding: '1.5rem',
+          boxShadow: '0 8px 24px rgba(15, 23, 42, 0.06)',
+        }}>
+          <div style={{ fontSize: '1.25rem', fontWeight: 600, color: '#0f172a', marginBottom: '0.5rem' }}>
+            We couldn’t run your model
+          </div>
+          <div style={{ color: '#475569', marginBottom: '1rem', lineHeight: 1.5 }}>
+            {errorMessage}
+          </div>
+          <div style={{ color: '#64748b' }}>
+            Please check the operation inputs and try again. If the issue persists, download your scenario and share the error
+            message with support.
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // Initialization guard: prevent crashes during startup
   if (!input || !modelOutput) {

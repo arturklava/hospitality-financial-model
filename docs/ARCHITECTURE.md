@@ -9216,6 +9216,12 @@ export type Glossary = Record<string, GlossaryEntry>;
 - **Reliability Agent**: Build pipeline generation of health.json, test result exposure logic
 - **UI Agent**: System Status badge, Certificates modal implementation
 
+**Error Messaging & Health Reporting (v1.0 Hardening)**:
+- Engine/domain validation errors must include the operation name, the specific field, and the expected range (e.g., `Operation Test Hotel occupancy month 1 (0-1 scale) must be between 0 and 1, got 1.2`).
+- UI layers should surface these errors as concise banners without stack traces or serialized configs.
+- Run `node scripts/generate-health.js` before packaging releases; the script executes Vitest, captures commit/version metadata, and writes `public/health.json`.
+- `health.json` fields: `status`, `version`, `commit`, `passing`, `failing`, `totalTests`, `checksPassed`, `criticalSuites[]`, `lastCheck`. Treat any failing count or missing critical suite as degraded.
+
 ---
 
 #### 3. Contextual UI (`ContextTooltip`)

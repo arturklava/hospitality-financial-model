@@ -176,6 +176,8 @@ export interface ValidationResult {
  * ```
  */
 export function validateOperationDrivers(op: OperationConfig): ValidationResult {
+  const opLabel = op.name ? `${op.name} (${op.operationType})` : op.operationType;
+  const prefix = `Operation ${opLabel}`;
   const errors: string[] = [];
 
   // Check operation type and validate accordingly
@@ -186,14 +188,16 @@ export function validateOperationDrivers(op: OperationConfig): ValidationResult 
         for (let i = 0; i < op.occupancyByMonth.length; i++) {
           const occupancy = op.occupancyByMonth[i];
           if (typeof occupancy !== 'number' || occupancy < 0 || occupancy > 1) {
-            errors.push(`Occupancy month ${i + 1} must be between 0 and 1, got ${occupancy}`);
+            errors.push(
+              `${prefix} occupancy month ${i + 1} (0-1 scale) must be between 0 and 1, got ${occupancy}`
+            );
           }
         }
       }
 
       // Validate average daily rate (> 0)
       if (typeof op.avgDailyRate !== 'number' || op.avgDailyRate <= 0) {
-        errors.push(`Average daily rate must be greater than 0, got ${op.avgDailyRate}`);
+        errors.push(`${prefix} avgDailyRate must be greater than 0, got ${op.avgDailyRate}`);
       }
       break;
     }
@@ -204,14 +208,16 @@ export function validateOperationDrivers(op: OperationConfig): ValidationResult 
         for (let i = 0; i < op.occupancyByMonth.length; i++) {
           const occupancy = op.occupancyByMonth[i];
           if (typeof occupancy !== 'number' || occupancy < 0 || occupancy > 1) {
-            errors.push(`Occupancy month ${i + 1} must be between 0 and 1, got ${occupancy}`);
+            errors.push(
+              `${prefix} occupancy month ${i + 1} (0-1 scale) must be between 0 and 1, got ${occupancy}`
+            );
           }
         }
       }
 
       // Validate average nightly rate (> 0)
       if (typeof op.avgNightlyRate !== 'number' || op.avgNightlyRate <= 0) {
-        errors.push(`Average nightly rate must be greater than 0, got ${op.avgNightlyRate}`);
+        errors.push(`${prefix} avgNightlyRate must be greater than 0, got ${op.avgNightlyRate}`);
       }
       break;
     }
@@ -222,7 +228,7 @@ export function validateOperationDrivers(op: OperationConfig): ValidationResult 
 
       // Validate average check (> 0)
       if (typeof op.avgCheck !== 'number' || op.avgCheck <= 0) {
-        errors.push(`Average check must be greater than 0, got ${op.avgCheck}`);
+        errors.push(`${prefix} avgCheck must be greater than 0, got ${op.avgCheck}`);
       }
       break;
     }
@@ -234,14 +240,16 @@ export function validateOperationDrivers(op: OperationConfig): ValidationResult 
         for (let i = 0; i < op.occupancyByMonth.length; i++) {
           const occupancy = op.occupancyByMonth[i];
           if (typeof occupancy !== 'number' || occupancy < 0 || occupancy > 1) {
-            errors.push(`Occupancy month ${i + 1} must be between 0 and 1, got ${occupancy}`);
+            errors.push(
+              `${prefix} occupancy month ${i + 1} (0-1 scale) must be between 0 and 1, got ${occupancy}`
+            );
           }
         }
       }
 
       // Validate average rent per sqm (> 0)
       if (typeof op.avgRentPerSqm !== 'number' || op.avgRentPerSqm <= 0) {
-        errors.push(`Average rent per sqm must be greater than 0, got ${op.avgRentPerSqm}`);
+        errors.push(`${prefix} avgRentPerSqm must be greater than 0, got ${op.avgRentPerSqm}`);
       }
       break;
     }
@@ -253,14 +261,16 @@ export function validateOperationDrivers(op: OperationConfig): ValidationResult 
         for (let i = 0; i < op.utilizationByMonth.length; i++) {
           const utilization = op.utilizationByMonth[i];
           if (typeof utilization !== 'number' || utilization < 0 || utilization > 1) {
-            errors.push(`Utilization month ${i + 1} must be between 0 and 1, got ${utilization}`);
+            errors.push(
+              `${prefix} utilization month ${i + 1} (0-1 scale) must be between 0 and 1, got ${utilization}`
+            );
           }
         }
       }
 
       // Validate average daily pass price (> 0)
       if (typeof op.avgDailyPassPrice !== 'number' || op.avgDailyPassPrice <= 0) {
-        errors.push(`Average daily pass price must be greater than 0, got ${op.avgDailyPassPrice}`);
+        errors.push(`${prefix} avgDailyPassPrice must be greater than 0, got ${op.avgDailyPassPrice}`);
       }
       break;
     }
@@ -271,14 +281,16 @@ export function validateOperationDrivers(op: OperationConfig): ValidationResult 
         for (let i = 0; i < op.utilizationByMonth.length; i++) {
           const utilization = op.utilizationByMonth[i];
           if (typeof utilization !== 'number' || utilization < 0 || utilization > 1) {
-            errors.push(`Utilization month ${i + 1} must be between 0 and 1, got ${utilization}`);
+            errors.push(
+              `${prefix} utilization month ${i + 1} (0-1 scale) must be between 0 and 1, got ${utilization}`
+            );
           }
         }
       }
 
       // Validate average court rate (> 0)
       if (typeof op.avgCourtRate !== 'number' || op.avgCourtRate <= 0) {
-        errors.push(`Average court rate must be greater than 0, got ${op.avgCourtRate}`);
+        errors.push(`${prefix} avgCourtRate must be greater than 0, got ${op.avgCourtRate}`);
       }
       break;
     }
@@ -289,14 +301,16 @@ export function validateOperationDrivers(op: OperationConfig): ValidationResult 
         for (let i = 0; i < op.occupancyByMonth.length; i++) {
           const occupancy = op.occupancyByMonth[i];
           if (typeof occupancy !== 'number' || occupancy < 0 || occupancy > 1) {
-            errors.push(`Occupancy month ${i + 1} must be between 0 and 1, got ${occupancy}`);
+            errors.push(
+              `${prefix} occupancy month ${i + 1} (0-1 scale) must be between 0 and 1, got ${occupancy}`
+            );
           }
         }
       }
 
       // Validate average monthly rate (> 0)
       if (typeof op.avgMonthlyRate !== 'number' || op.avgMonthlyRate <= 0) {
-        errors.push(`Average monthly rate must be greater than 0, got ${op.avgMonthlyRate}`);
+        errors.push(`${prefix} avgMonthlyRate must be greater than 0, got ${op.avgMonthlyRate}`);
       }
       break;
     }

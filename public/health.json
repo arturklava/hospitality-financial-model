@@ -1,9 +1,27 @@
 {
-  "status": "stable",
+  "status": "failing",
   "version": "v1.1.2",
-  "checksPassed": 805,
-  "totalTests": 805,
-  "passing": 805,
-  "failing": 0,
-  "lastCheck": "2025-11-25T14:43:55.658Z"
+  "commit": "dd4d6962d8a121bbea5889c1a79a740ae4a6175b",
+  "checksPassed": 761,
+  "totalTests": 847,
+  "passing": 761,
+  "failing": 86,
+  "criticalSuites": [
+    {
+      "path": "src/tests/financial.test.ts",
+      "present": true,
+      "status": "passed"
+    },
+    {
+      "path": "src/tests/pipeline/pipelineInvariants.test.ts",
+      "present": true,
+      "status": "passed"
+    },
+    {
+      "path": "src/tests/engines/waterfall/waterfallEngine.test.ts",
+      "present": true,
+      "status": "passed"
+    }
+  ],
+  "lastCheck": "2025-11-25T16:37:52.834Z"
 }

@@ -11,6 +11,13 @@ import type {
 } from '@domain/types';
 import { createSampleModelConfig } from '../state/sampleData';
 
+function formatModelError(error: unknown): string {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+  return 'Model run failed due to an unexpected error.';
+}
+
 export function useFullModel() {
   const [input, setInput] = useState<FullModelInput>(() => {
     const sample = createSampleModelConfig();
@@ -22,13 +29,17 @@ export function useFullModel() {
     };
   });
 
-  const output: FullModelOutput | null = useMemo(() => {
+  const { output, errorMessage } = useMemo(() => {
     try {
-      return runFullModel(input);
-    } catch (e) {
-      // For now, fail silently and return null; later we can add proper error UI.
-      console.error('Full model failed', e);
-      return null;
+      return {
+        output: runFullModel(input),
+        errorMessage: null,
+      };
+    } catch (error) {
+      return {
+        output: null,
+        errorMessage: formatModelError(error),
+      };
     }
   }, [input]);
 
@@ -36,6 +47,7 @@ export function useFullModel() {
     input,
     setInput,
     output,
+    errorMessage,
   };
 }
 

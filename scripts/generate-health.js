@@ -12,14 +12,33 @@
  * This script is run before build to ensure health.json is available.
  */
 
-import { readFileSync, writeFileSync, mkdirSync } from 'fs';
-import { join, dirname } from 'path';
+import { readFileSync, writeFileSync, mkdirSync, existsSync, unlinkSync } from 'fs';
+import { join, dirname, relative } from 'path';
 import { fileURLToPath } from 'url';
-import { execSync } from 'child_process';
+import { spawnSync } from 'child_process';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const rootDir = join(__dirname, '..');
+
+function runCommand(command, args, options = {}) {
+  const result = spawnSync(command, args, {
+    cwd: rootDir,
+    encoding: 'utf-8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+    ...options,
+  });
+
+  if (result.error) {
+    throw result.error;
+  }
+
+  return {
+    stdout: result.stdout ?? '',
+    stderr: result.stderr ?? '',
+    status: result.status ?? 0,
+  };
+}
 
 /**
  * Reads version from package.json
@@ -29,14 +48,23 @@ function getVersion() {
     const packageJson = JSON.parse(
       readFileSync(join(rootDir, 'package.json'), 'utf-8')
     );
-    // If version is 0.0.0, use a default version based on QA reports
     if (packageJson.version === '0.0.0' || !packageJson.version) {
-      return 'v1.1.2'; // Default version for v1.0+ systems
+      return 'v1.1.2';
     }
     return `v${packageJson.version}`;
   } catch (error) {
     console.warn('Could not read package.json, using default version');
     return 'v1.1.2';
+  }
+}
+
+function getCommitHash() {
+  try {
+    const { stdout } = runCommand('git', ['rev-parse', 'HEAD']);
+    return stdout.trim();
+  } catch (error) {
+    console.warn('Could not read git commit hash');
+    return 'unknown';
   }
 }
 
@@ -46,103 +74,54 @@ function getVersion() {
  * Falls back to parsing test output summary if JSON fails
  */
 function getTestCounts() {
+  const reportPath = join(rootDir, 'public', 'health-vitest.json');
+  runCommand('npx', [
+    'vitest',
+    'run',
+    '--reporter=json',
+    '--outputFile',
+    reportPath,
+    '--run',
+  ]);
+
+  const report = JSON.parse(readFileSync(reportPath, 'utf-8'));
   try {
-    // Try to run vitest and parse the output
-    const output = execSync('npm test -- --run', {
-      cwd: rootDir,
-      encoding: 'utf-8',
-      stdio: ['ignore', 'pipe', 'pipe'],
-      timeout: 120000, // 2 minute timeout for tests
-    });
-
-    // Try to extract test count from summary line
-    // Format: "Tests  X failed | Y passed (Z)" where Z is total
-    // Or: "Tests  Y passed (Z)" when no failures
-    const summaryMatch = output.match(/Tests\s+(\d+)\s+failed\s+\|\s+(\d+)\s+passed\s+\((\d+)\)/);
-    if (summaryMatch) {
-      const failedCount = parseInt(summaryMatch[1], 10);
-      const passedCount = parseInt(summaryMatch[2], 10);
-      const totalCount = parseInt(summaryMatch[3], 10);
-      if (!isNaN(totalCount) && totalCount > 0) {
-        return {
-          total: totalCount,
-          passing: passedCount,
-          failing: failedCount,
-        };
-      }
-    }
-    
-    // Alternative format: "Tests  Y passed (Z)" when all tests pass
-    const allPassedMatch = output.match(/Tests\s+(\d+)\s+passed\s+\((\d+)\)/);
-    if (allPassedMatch) {
-      const passedCount = parseInt(allPassedMatch[1], 10);
-      const totalCount = parseInt(allPassedMatch[2], 10);
-      if (!isNaN(totalCount) && totalCount > 0) {
-        return {
-          total: totalCount,
-          passing: passedCount,
-          failing: 0,
-        };
-      }
-    }
-
-    // Alternative format: "Test Files  X failed | Y passed"
-    const filesMatch = output.match(/Test Files\s+(\d+)\s+failed\s+\|\s+(\d+)\s+passed/);
-    if (filesMatch) {
-      // If we can't get exact count, estimate based on files (assuming ~10 tests per file)
-      const passedFiles = parseInt(filesMatch[2], 10);
-      if (!isNaN(passedFiles)) {
-        const estimatedTotal = passedFiles * 10; // Rough estimate
-        return {
-          total: estimatedTotal,
-          passing: estimatedTotal,
-          failing: 0,
-        };
-      }
-    }
-  } catch (error) {
-    // If vitest fails or times out, try to parse error output
-    try {
-      const errorOutput = error.stdout?.toString() || error.stderr?.toString() || '';
-      const summaryMatch = errorOutput.match(/Tests\s+(\d+)\s+failed\s+\|\s+(\d+)\s+passed\s+\((\d+)\)/);
-      if (summaryMatch) {
-        const failedCount = parseInt(summaryMatch[1], 10);
-        const passedCount = parseInt(summaryMatch[2], 10);
-        const totalCount = parseInt(summaryMatch[3], 10);
-        if (!isNaN(totalCount) && totalCount > 0) {
-          return {
-            total: totalCount,
-            passing: passedCount,
-            failing: failedCount,
-          };
-        }
-      }
-      
-      // Try all-passed format in error output
-      const allPassedMatch = errorOutput.match(/Tests\s+(\d+)\s+passed\s+\((\d+)\)/);
-      if (allPassedMatch) {
-        const passedCount = parseInt(allPassedMatch[1], 10);
-        const totalCount = parseInt(allPassedMatch[2], 10);
-        if (!isNaN(totalCount) && totalCount > 0) {
-          return {
-            total: totalCount,
-            passing: passedCount,
-            failing: 0,
-          };
-        }
-      }
-    } catch {
-      // Ignore parsing errors
-    }
-    console.warn('Could not get test count from Vitest, using default value');
+    unlinkSync(reportPath);
+  } catch {
+    // Best-effort cleanup
   }
 
-  // Default fallback: 805 total tests (from current test run - all passing)
   return {
-    total: 805,
-    passing: 805,
-    failing: 0,
+    total: report.numTotalTests ?? 0,
+    passing: report.numPassedTests ?? 0,
+    failing: report.numFailedTests ?? 0,
+    testResults: Array.isArray(report.testResults) ? report.testResults : [],
   };
+}
+
+function getCriticalSuites(testResults) {
+  const criticalPaths = [
+    'src/tests/financial.test.ts',
+    'src/tests/pipeline/pipelineInvariants.test.ts',
+    'src/tests/engines/waterfall/waterfallEngine.test.ts',
+  ];
+
+  const resultsByPath = new Map();
+  for (const result of testResults) {
+    if (typeof result.name === 'string') {
+      const relPath = relative(rootDir, result.name);
+      resultsByPath.set(relPath, result.status ?? 'unknown');
+    }
+  }
+
+  return criticalPaths.map((relativePath) => {
+    const fullPath = join(rootDir, relativePath);
+    return {
+      path: relativePath,
+      present: existsSync(fullPath),
+      status: resultsByPath.get(relativePath) ?? 'unknown',
+    };
+  });
 }
 
 /**
@@ -163,18 +142,22 @@ function getStatus() {
  * v5.8: Includes total tests count
  */
 function generateHealth() {
-  const status = getStatus();
   const version = getVersion();
+  const commit = getCommitHash();
   const testCounts = getTestCounts();
   const lastCheck = new Date().toISOString();
+  const criticalSuites = getCriticalSuites(testCounts.testResults);
+  const status = testCounts.failing > 0 ? 'failing' : getStatus();
 
   const healthData = {
     status,
     version,
-    checksPassed: testCounts.passing, // For backward compatibility
-    totalTests: testCounts.total, // v5.8: Total tests count
+    commit,
+    checksPassed: testCounts.passing,
+    totalTests: testCounts.total,
     passing: testCounts.passing,
     failing: testCounts.failing,
+    criticalSuites,
     lastCheck,
   };
 

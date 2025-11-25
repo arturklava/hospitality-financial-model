@@ -9,7 +9,7 @@ import type { FullModelInput, FullModelOutput, SavedScenario, NamedScenario } fr
 import type { ScenarioWithMetadata } from '../../engines/io/cloudStorage';
 
 export function useFinancialModel() {
-    const { input, setInput, output } = useFullModel();
+    const { input, setInput, output, errorMessage } = useFullModel();
     const { user, loading: authLoading } = useAuth();
     const [savedVersions, setSavedVersions] = useState<SavedScenario[]>([]);
 
@@ -41,13 +41,15 @@ export function useFinancialModel() {
                     setSavedVersions(localVersions);
                 }
             } catch (error) {
-                console.error('[useFinancialModel] Error loading scenarios:', error);
+                const message = error instanceof Error ? error.message : String(error);
+                console.error('[useFinancialModel] Error loading scenarios:', message);
                 // Fallback to localStorage on error
                 try {
                     const localVersions = loadVersions();
                     setSavedVersions(localVersions);
                 } catch (fallbackError) {
-                    console.error('[useFinancialModel] Fallback to localStorage also failed:', fallbackError);
+                    const message = fallbackError instanceof Error ? fallbackError.message : String(fallbackError);
+                    console.error('[useFinancialModel] Fallback to localStorage also failed:', message);
                     setSavedVersions([]);
                 }
             }
@@ -60,48 +62,7 @@ export function useFinancialModel() {
         setInput(newInput);
     }, [setInput]);
 
-    const runModel = useCallback(() => {
-        // useFullModel already runs the model on input change
-        // We just return the output or a default empty structure if null
-        if (output) return output;
-
-        // Return a minimal valid FullModelOutput to avoid crashes
-        // This is a placeholder until the model runs successfully
-        return {
-            scenario: input.scenario,
-            consolidatedAnnualPnl: [],
-            project: {
-                unleveredFcf: [],
-                dcfValuation: {
-                    discountRate: 0,
-                    terminalGrowthRate: 0,
-                    cashFlows: [],
-                    npv: 0,
-                    enterpriseValue: 0,
-                    equityValue: 0,
-                    terminalValue: 0
-                },
-                projectKpis: {
-                    npv: 0,
-                    unleveredIrr: 0,
-                    equityMultiple: 0,
-                    paybackPeriod: 0,
-                    wacc: 0
-                }
-            },
-            capital: {
-                debtSchedule: { entries: [] },
-                leveredFcfByYear: [],
-                ownerLeveredCashFlows: [],
-                debtKpis: []
-            },
-            waterfall: {
-                ownerCashFlows: [],
-                partners: [],
-                annualRows: []
-            },
-        } as FullModelOutput;
-    }, [output, input]);
+    const runModel = useCallback(() => output, [output]);
 
     const saveVersion = useCallback(async (name: string): Promise<SavedScenario | null> => {
         if (!output) return null;
@@ -149,7 +110,8 @@ export function useFinancialModel() {
             };
             return savedVersion;
         } catch (error) {
-            console.error('[useFinancialModel] Error saving scenario:', error);
+            const message = error instanceof Error ? error.message : String(error);
+            console.error('[useFinancialModel] Error saving scenario:', message);
             // Fallback to localStorage on error
             try {
                 const newVersion: SavedScenario = {
@@ -160,7 +122,8 @@ export function useFinancialModel() {
                 setSavedVersions(loadVersions());
                 return newVersion;
             } catch (fallbackError) {
-                console.error('[useFinancialModel] Fallback to localStorage also failed:', fallbackError);
+                const message = fallbackError instanceof Error ? fallbackError.message : String(fallbackError);
+                console.error('[useFinancialModel] Fallback to localStorage also failed:', message);
                 return null;
             }
         }
@@ -184,7 +147,8 @@ export function useFinancialModel() {
                 setInput(version.modelConfig);
             }
         } catch (error) {
-            console.error('[useFinancialModel] Error loading version:', error);
+            const message = error instanceof Error ? error.message : String(error);
+            console.error('[useFinancialModel] Error loading version:', message);
             // Fallback to localStorage on error
             const version = getVersion(versionId);
             if (version) {
@@ -208,7 +172,8 @@ export function useFinancialModel() {
             // Basic validation could go here
             setInput(importedInput);
         } catch (error) {
-            console.error('Failed to import scenario:', error);
+            const message = error instanceof Error ? error.message : String(error);
+            console.error('Failed to import scenario:', message);
         }
     }, [setInput]);
 
@@ -231,5 +196,6 @@ export function useFinancialModel() {
         exportJson,
         importJson,
         exportExcel,
+        errorMessage,
     };
 }
