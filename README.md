@@ -4,6 +4,26 @@ A comprehensive financial modeling engine for hospitality multi-operation projec
 
 **Tech Stack**: TypeScript (strict mode), Vite, React, Vitest
 
+## Quickstart & onboarding
+
+1. Install dependencies: `npm install` (run once).
+2. Validate the model before shipping changes:
+   - `npm test`
+   - `node scripts/generate-health.js` (produces `public/health.json`)
+3. Run the app: `npm run dev` (defaults to http://localhost:5173).
+4. Keep changes focused on correctness and hardening—align with `docs/ARCHITECTURE.md` before adjusting formulas or KPIs.
+
+## Model pipeline (at a glance)
+
+The end-to-end flow is deterministic and orchestrated by `runFullModel`:
+
+1. **Operations** (`runHotelEngine`, `runOperation`): per-asset monthly/annual P&L.
+2. **Scenario** (`runScenarioEngine`): consolidates operations into project-level P&L.
+3. **Project** (`runProjectEngine`): unlevered FCF, DCF valuation, project KPIs.
+4. **Capital** (`runCapitalEngine`): debt schedules, levered FCF, owner cash flows.
+5. **Waterfall** (`applyEquityWaterfall`): LP/GP distributions, IRR/MOIC by partner.
+6. **UI/hooks** (`useFullModel`): presents KPIs, statements, and analytics.
+
 ## Features
 
 ### Core Capabilities
@@ -191,9 +211,10 @@ Key directories:
 
 ## Documentation
 
-- **Architecture**: `docs/ARCHITECTURE.md` - Complete system architecture and design decisions
-- **Agents**: `docs/AGENTS.md` - Multi-agent collaboration guidelines
-- **Integrated Financial Encyclopedia**: Built-in financial glossary with executive-friendly definitions for key terms (NOI, DSCR, LTV, IRR, Equity Multiple) - understand the math without looking at the code
+- **Architecture**: `docs/ARCHITECTURE.md` — pipeline, formulas, and invariants
+- **Glossary**: `docs/GLOSSARY.md` — ADR, RevPAR, NOI, MOIC, and other KPIs with formulas
+- **Agents**: `docs/AGENTS.md` — role responsibilities and collaboration rules
+- **LLM Guide**: `docs/LLM_GUIDE.md` — workflow and hardening principles for AI contributors
 
 ## Testing
 
