@@ -162,6 +162,11 @@ All types defined in `src/domain/types.ts`.
   - `maintenanceCapexPct`: as % of total revenue
   - **Note**: No distinction between independent living, assisted living, memory care; all units treated uniformly
 
+### Operation input validation
+
+- **Monthly driver arrays**: `occupancyByMonth`, `utilizationByMonth`, and `turnoverByMonth` must contain exactly 12 monthly values. Occupancy/utilization arrays must stay within the 0–1 interval.
+- **Percentages**: All percentage fields across operations (revenue mix, COGS, OPEX, capex, commissions) must remain within 0–1. Domain validation enforces these bounds in addition to Zod schemas.
+
 ### Financial Statements
 
 - **`MonthlyPnl`**: Per operation, per month
