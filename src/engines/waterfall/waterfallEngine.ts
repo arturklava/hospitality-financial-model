@@ -159,16 +159,12 @@ function applyCompoundPref(
   partnerIds: string[],
   prefAccountBalance: Record<string, number>,
   yearDistributions: Record<string, number>,
-  remainingDistribution: number,
-  yearIndex: number,
-  unreturnedCapital: Record<string, number>
+  remainingDistribution: number
 ): number {
   if (tier.prefRate === undefined) {
     throw new Error('prefRate must be defined for compound preference');
   }
-  
-  const prefRate = tier.prefRate;
-  
+
   // Normalize distribution splits
   const tierSplits: Record<string, number> = {};
   const splitValues = partnerIds.map((id) => tier.distributionSplits[id] ?? 0);
@@ -176,35 +172,19 @@ function applyCompoundPref(
   for (let i = 0; i < partnerIds.length; i++) {
     tierSplits[partnerIds[i]] = normalizedSplits[i];
   }
-  
-  // Initialize preference account balance from unreturned capital (if not already initialized)
-  // Preference balance starts from unreturned capital at Year 0
-  if (yearIndex === 0) {
-    for (const partnerId of partnerIds) {
-      if (prefAccountBalance[partnerId] === 0 && unreturnedCapital[partnerId] < 0) {
-        // Negative unreturned capital means capital contributed but not returned
-        prefAccountBalance[partnerId] = Math.abs(unreturnedCapital[partnerId]);
-      }
-    }
-  }
-  
-  // Accrue compound interest: balance = balance * (1 + rate)
-  for (const partnerId of partnerIds) {
-    if (prefAccountBalance[partnerId] > 0) {
-      prefAccountBalance[partnerId] = prefAccountBalance[partnerId] * (1 + prefRate);
-    }
-  }
-  
+
+  // v2.11 REFACTOR: Initialization and Accrual moved to main loop
+  // This function now ONLY handles distribution allocation
+
   // Allocate distributions to reduce preference account balance
   // Allocate according to tier splits until all balances are satisfied
   let remaining = remainingDistribution;
-  
   // Calculate total preference balance that needs to be satisfied
   let totalPrefBalance = 0;
   for (const partnerId of partnerIds) {
     totalPrefBalance += prefAccountBalance[partnerId];
   }
-  
+
   // Allocate distributions to satisfy preference balances
   let allocated = 0;
   if (totalPrefBalance > 0 && remaining > 0) {
@@ -232,10 +212,10 @@ function applyCompoundPref(
     yearDistributions[lastPartnerId] = (yearDistributions[lastPartnerId] ?? 0) + lastShare;
     // Reduce preference balance by allocated amount
     prefAccountBalance[lastPartnerId] = Math.max(0, prefAccountBalance[lastPartnerId] - lastShare);
-    
+
     allocated = runningSum + lastShare;
   }
-  
+
   return allocated;
 }
 
@@ -288,9 +268,28 @@ function applyMultiTierWaterfall(
     prefAccountBalance[partnerIds[i]] = 0;
   }
 
+  // Find preferred return rate if compound preference is used
+  // We assume only one preferred return tier with compound preference for now
+  let compoundPrefRate = 0;
+  const prefTier = tiers.find(t => t.type === 'preferred_return' && t.compoundPref === true);
+  if (prefTier && prefTier.prefRate !== undefined) {
+    compoundPrefRate = prefTier.prefRate;
+  }
+
   // Process each year
   for (let t = 0; t < n; t++) {
     const ownerCF = ownerCashFlows[t];
+
+    // v2.11 FIX: Accrue interest on preference balance at start of year
+    // Only if balance > 0. For Year 0, balance is 0 until capital call, so no interest.
+    // For subsequent years, interest accrues on opening balance.
+    if (t > 0 && compoundPrefRate > 0) {
+      for (const partnerId of partnerIds) {
+        if (prefAccountBalance[partnerId] > 0) {
+          prefAccountBalance[partnerId] = prefAccountBalance[partnerId] * (1 + compoundPrefRate);
+        }
+      }
+    }
 
     // Handle capital calls (negative cash flows) using contributionPct
     if (ownerCF < 0) {
@@ -300,11 +299,19 @@ function applyMultiTierWaterfall(
         partnerCashFlows[i][t] = share;
         // Increase unreturned capital (share is negative, so we subtract to make it more negative)
         unreturnedCapital[partnerIds[i]] += Math.abs(share);
+
+        // v2.11 FIX: Add capital call to preference account balance
+        // If using compound preference, new capital also earns preference
+        prefAccountBalance[partnerIds[i]] += Math.abs(share);
+
         runningSum += share;
       }
       const lastIndex = classes.length - 1;
       partnerCashFlows[lastIndex][t] = ownerCF - runningSum;
-      unreturnedCapital[partnerIds[lastIndex]] += Math.abs(partnerCashFlows[lastIndex][t]);
+      const lastShare = partnerCashFlows[lastIndex][t];
+      unreturnedCapital[partnerIds[lastIndex]] += Math.abs(lastShare);
+      // v2.11 FIX: Add capital call to preference account balance
+      prefAccountBalance[partnerIds[lastIndex]] += Math.abs(lastShare);
       continue;
     }
 
@@ -358,29 +365,31 @@ function applyMultiTierWaterfall(
               yearDistributions[partnerId] += share;
               unreturnedCapital[partnerId] -= share;
               remainingDistribution -= share;
+
+              // NOTE: We do NOT reduce prefAccountBalance here.
+              // Preference balance tracks ACCRUED INTEREST on capital, not the capital itself.
+              // ROC returns principal; preference tier pays the interest.
             }
           }
         } else if (tier.type === 'preferred_return') {
           // v2.10: Check if compound preference is enabled
           const useCompoundPref = tier.compoundPref === true;
-          
+
           if (useCompoundPref) {
             // v2.10: Compound preference logic
             if (tier.prefRate === undefined) {
               throw new Error('prefRate must be defined for compound preference');
             }
-            
+
             // Apply compound preference: track balance, accrue interest, reduce with distributions
             const allocated = applyCompoundPref(
               tier,
               partnerIds,
               prefAccountBalance,
               yearDistributions,
-              remainingDistribution,
-              t,
-              unreturnedCapital
+              remainingDistribution
             );
-            
+
             // Reduce remaining distribution by allocated amount
             remainingDistribution -= allocated;
           } else {
@@ -478,41 +487,41 @@ function applyMultiTierWaterfall(
               // v0.9.2 FIX: Allocate catch-up with strict hard cap per partner
               // Calculate total distributions after allocating remaining (assumes all remaining is allocated)
               const totalDistributions = totalCumulative + remainingDistribution;
-              
+
               // v0.9.2 FIX: Use precision tolerance for floating-point comparisons
               const precisionTolerance = 1e-9;
-              
+
               let runningSum = 0;
               for (let i = 0; i < classes.length - 1; i++) {
                 const partnerId = partnerIds[i];
                 const targetPct = catchUpTargetSplit[partnerId] ?? 0;
                 const catchUpSplit = catchUpSplits[partnerId];
-                
+
                 if (targetPct > 0 && catchUpSplit > 0 && remainingDistribution > precisionTolerance) {
                   const currentCatchUpDist = currentCumulative[partnerId];
-                  
+
                   // v0.9.2 FIX: Strict hard cap calculation
                   // What would total distributions be if we allocate all remaining?
                   const targetCatchUpDist = totalDistributions * targetPct;
                   // Maximum this partner can receive to stay at target ratio
                   const maxCatchUp = Math.max(0, targetCatchUpDist - currentCatchUpDist);
-                  
+
                   // Calculate share based on catch-up split, but STRICTLY cap it
                   const uncappedShare = remainingDistribution * catchUpSplit;
                   // v0.9.2 FIX: Strict enforcement - share = min(remainingDistribution, maxCatchUp)
                   const finalShare = Math.max(0, Math.min(uncappedShare, maxCatchUp));
-                  
+
                   yearDistributions[partnerId] += finalShare;
                   runningSum += finalShare;
                 }
               }
-              
+
               // Last partner gets remainder (capped to their max)
               const lastPartnerId = partnerIds[classes.length - 1];
               const lastTargetPct = catchUpTargetSplit[lastPartnerId] ?? 0;
               const lastCatchUpSplit = catchUpSplits[lastPartnerId];
               const lastCurrentCatchUpDist = currentCumulative[lastPartnerId];
-              
+
               if (lastTargetPct > 0 && lastCatchUpSplit > 0) {
                 const lastTargetCatchUpDist = totalDistributions * lastTargetPct;
                 const lastMaxCatchUp = Math.max(0, lastTargetCatchUpDist - lastCurrentCatchUpDist);
@@ -526,7 +535,7 @@ function applyMultiTierWaterfall(
                 yearDistributions[lastPartnerId] += remainingDistribution - runningSum;
                 runningSum = remainingDistribution;
               }
-              
+
               remainingDistribution -= runningSum;
 
               // If there's remaining distribution after catch-up, it goes to promote split
@@ -604,7 +613,7 @@ function applyMultiTierWaterfall(
         if (distribution > 0) {
           cumulativeDistributions[partnerIds[i]] += distribution;
         }
-        
+
         // v2.10: Update preference account balances after distributions (for compound preference)
         // Reduce preference account balance by distribution amount
         const partnerId = partnerIds[i];
@@ -780,7 +789,7 @@ function applyClawbackAtPeriod(
     if (Math.abs(adjustmentSum) > 0.01) {
       console.warn(
         `[Waterfall Engine] Clawback adjustment sum not zero: ${adjustmentSum.toFixed(2)} ` +
-          `(LP adjustment: ${totalLPAdjustment.toFixed(2)}, GP clawback: ${clawbackAmount.toFixed(2)})`
+        `(LP adjustment: ${totalLPAdjustment.toFixed(2)}, GP clawback: ${clawbackAmount.toFixed(2)})`
       );
     }
   }
@@ -843,9 +852,9 @@ function buildWaterfallResult(
     if (difference > tolerance) {
       console.warn(
         `[Waterfall Engine] Invariant violation at yearIndex ${t}: ` +
-          `ownerCF = ${ownerCF.toFixed(2)}, ` +
-          `sumPartners = ${sumPartners.toFixed(2)}, ` +
-          `difference = ${difference.toFixed(2)}`
+        `ownerCF = ${ownerCF.toFixed(2)}, ` +
+        `sumPartners = ${sumPartners.toFixed(2)}, ` +
+        `difference = ${difference.toFixed(2)}`
       );
     }
 

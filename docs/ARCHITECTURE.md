@@ -278,6 +278,7 @@ All types defined in `src/domain/types.ts`.
 **Simple Refinancing Model (v0.5, Fixed in v0.8.1, Validated in v0.9)**:
 - ✅ **CRITICAL REQUIREMENT (v0.8.1+)**: At `refinanceAtYear`, the old tranche's `endingBalance` MUST be exactly `0`, and principal payment MUST equal `beginningBalance` of that year
 - ✅ **VALIDATION (v0.9)**: Refinancing logic is strictly enforced and validated to prevent regressions
+- ✅ **STRICT ENFORCEMENT (v2.10)**: Invariant violations throw errors; simple refinancing explicitly sets ending balance to 0 to avoid floating point artifacts
 - **Refinancing Logic**:
   - At `refinanceAtYear`, the tranche's remaining balance is fully repaid (principal payment = beginning balance of refinance year)
   - The old tranche's schedule MUST end at `refinanceAtYear` (no entries after refinance)
@@ -476,6 +477,106 @@ To keep code maintainable and predictable, v0.4 engines for new operations SHOUL
 - Aggregate monthly P&L into annual P&L using the same summation logic
 - Ensure all values are finite (no NaN/Infinity) - this is a core invariant
 
+#### Operational KPIs
+
+**Status**: ✅ Validated in v1.0 (Hardening Phase)
+
+The operations engines calculate several key performance indicators (KPIs) that are essential for hospitality financial analysis. These KPIs are either **inputs** to the model or **calculated outputs** from the P&L.
+
+##### Input KPIs (Configuration Parameters)
+
+**ADR (Average Daily Rate)**:
+- **Definition**: Average revenue per occupied room/unit per night
+- **Field names**: 
+  - `avgDailyRate` (HOTEL)
+  - `avgNightlyRate` (VILLAS)
+  - `avgMonthlyRate` (SENIOR_LIVING, converted to daily equivalent)
+- **Type**: Input parameter (not calculated)
+- **Units**: Project currency per night
+- **Example**: $200/night for a mid-scale hotel
+
+**Occupancy**:
+- **Definition**: Percentage of available keys/units that are occupied
+- **Field name**: `occupancyByMonth` (array of 12 monthly values)
+- **Type**: Input parameter (not calculated)
+- **Units**: Decimal (0..1), where 0.70 = 70% occupancy
+- **Pattern**: Lodging-like operations only (HOTEL, VILLAS, SENIOR_LIVING)
+- **Example**: `[0.65, 0.70, 0.75, 0.80, 0.85, 0.90, 0.90, 0.85, 0.80, 0.75, 0.70, 0.65]` (seasonal pattern)
+
+##### Calculated KPIs (Derived from P&L)
+
+**RevPAR (Revenue per Available Room)**:
+- **Definition**: Total room revenue divided by total available room nights, regardless of occupancy
+- **Formula**: `RevPAR = totalRoomRevenue / (keys × daysInHorizon)`
+- **Calculated in**: `assetAnalytics.ts` (for HOTEL operations)
+- **Units**: Project currency per available room night
+- **Industry standard formula**: `RevPAR = ADR × Occupancy`
+- ⚠️ **Known Discrepancy (360 vs 365 days)**:
+  - **Engines**: Use 30 days/month = **360 days/year** for revenue calculation
+  - **RevPAR denominator**: Uses **365 days/year** for available room nights
+  - **Impact**: RevPAR is systematically understated by ~1.4% compared to ADR × Occupancy
+  - **Actual formula**: `RevPAR = (ADR × occupancy × 360) / 365` ≈ `ADR × occupancy × 0.986`
+  - **Rationale**: Engines use simplified 30-day months for consistency; RevPAR uses calendar days for industry standard comparison
+- **Invariant**: `RevPAR ≤ ADR` (always true when occupancy ≤ 100%)
+- **Example**: If ADR = $200 and occupancy = 70%, then RevPAR ≈ $138 (not $140 due to 360/365 adjustment)
+
+**GOP (Gross Operating Profit)**:
+- **Definition**: Total operating revenue minus departmental expenses (USALI-compliant)
+- **Formula**: `GOP = totalRevenue - departmentalExpenses`
+- **Calculated in**: All operation engines (monthly P&L)
+- **Field name**: `grossOperatingProfit` (in `MonthlyPnl` type)
+- **Departmental expenses** (varies by operation type):
+  - **Lodging-like** (HOTEL, VILLAS, SENIOR_LIVING): `departmentalExpenses = foodCogs + beverageCogs + commissions`
+  - **F&B/Volume** (RESTAURANT, BEACH_CLUB, RACQUET, WELLNESS): `departmentalExpenses = foodCogs + beverageCogs`
+  - **Lease-based** (RETAIL, FLEX): `departmentalExpenses = 0` (no COGS)
+- **USALI Terminology**: GOP is equivalent to "Gross Operating Profit" in USALI (Uniform System of Accounts for the Lodging Industry)
+- **Invariant**: `GOP ≤ totalRevenue` (always true when departmental expenses ≥ 0)
+- **Example**: If totalRevenue = $1,000,000 and departmentalExpenses = $300,000, then GOP = $700,000
+
+**GOP Margin %**:
+- **Definition**: Gross Operating Profit as a percentage of total revenue
+- **Formula**: `GOP Margin % = (GOP / totalRevenue) × 100`
+- **Calculated in**: UI/analytics layer (not stored in P&L)
+- **Units**: Percentage (0..100)
+- **Typical range**: 40-70% for hotels, 60-80% for lease-based operations
+- **Invariant**: `GOP Margin % ∈ [0, 100]` for profitable operations with positive revenue
+- **Example**: If GOP = $700,000 and totalRevenue = $1,000,000, then GOP Margin % = 70%
+
+##### KPI Calculation Patterns by Operation Type
+
+**Lodging-like Operations** (HOTEL, VILLAS, SENIOR_LIVING):
+- **Primary KPIs**: ADR, Occupancy, RevPAR, GOP, GOP Margin %
+- **Revenue formula**: `roomRevenue = keys × occupancy × ADR × 30 days`
+- **GOP formula**: `GOP = totalRevenue - (foodCogs + beverageCogs + commissions)`
+- **RevPAR applicability**: HOTEL only (as of v1.0); VILLAS and SENIOR_LIVING could support RevPAR-like metrics in future versions
+
+**F&B/Volume Operations** (RESTAURANT, BEACH_CLUB, RACQUET, WELLNESS):
+- **Primary KPIs**: Avg Check, Seat Turnover (or Utilization), COGS %, GOP, GOP Margin %
+- **Revenue formula**: `totalRevenue = volume × avgTicket` (varies by operation)
+- **GOP formula**: `GOP = totalRevenue - (foodCogs + beverageCogs)`
+- **RevPAR applicability**: Not applicable (no room/unit-based revenue)
+
+**Lease-based Operations** (RETAIL, FLEX):
+- **Primary KPIs**: Rent per sqm, GLA Occupancy, GOP, GOP Margin %
+- **Revenue formula**: `rentalRevenue = sqm × occupancy × avgRentPerSqm`
+- **GOP formula**: `GOP = totalRevenue` (no COGS)
+- **RevPAR applicability**: Not applicable (lease-based, not room-based)
+
+##### Invariants and Validation
+
+All operational KPIs must satisfy the following invariants (enforced in tests):
+
+1. **Finiteness**: All KPI values must be finite (no NaN or Infinity)
+2. **RevPAR ≤ ADR**: For lodging operations with occupancy ≤ 100%
+3. **GOP ≤ Total Revenue**: For all operations with non-negative departmental expenses
+4. **GOP Margin % ∈ [0, 100]**: For profitable operations with positive revenue
+5. **Consistency across patterns**: Operations following the same pattern (e.g., lodging-like) must use identical formulas
+
+**Test Coverage** (v1.0 Hardening):
+- `hotelEngine.test.ts`: GOP validation, RevPAR validation, extreme ADR tests, zero cost edge cases
+- `operationConsistency.test.ts`: Cross-operation GOP consistency, pattern validation, invariant checks
+
+
 **`runHotelEngine(config: HotelConfig): HotelEngineResult`**
 - **Input**: `HotelConfig`
 - **Output**: `{ monthlyPnl: MonthlyPnl[], annualPnl: AnnualPnl[] }`
@@ -647,7 +748,7 @@ To keep code maintainable and predictable, v0.4 engines for new operations SHOUL
       - For `'mortgage'`: linear amortization with optional balloon payment if term < amortization
       - For `'interest_only'`: interest payments only, principal repaid at maturity
       - For `'bullet'`: interest paid during term, principal repaid at maturity
-    - **Invariant check per tranche**: Verifies `sum(principal payments) + final ending balance ≈ initial principal` (tolerance 0.01, warns if violated)
+      - **Invariant check per tranche**: Verifies `sum(principal payments) + final ending balance ≈ initial principal` (tolerance 0.01, **throws Error** if violated)
   - **Aggregate debt schedule**: Sums all active tranches' interest, principal, and balances per year using `aggregateDebtSchedules()`
   - Levered FCF: `leveredFcf_t = unleveredFcf_t - aggregateDebtService_t` (where aggregateDebtService = sum of all active tranches' debt service)
   - Owner levered cash flows: `[-equityInvested, leveredFcf[0], ..., leveredFcf[N-1]]` where `equityInvested = initialInvestment - totalDebtAmount`
@@ -5252,6 +5353,115 @@ body {
 - No changes to component logic
 - No changes to view structure
 - **Only CSS fixes to restore visibility**
+
+### v1.0 – Enterprise Shell Polish (Verification)
+
+**Status**: ✅ **Verified (2025-11-25)**
+
+**Overview**: Comprehensive verification of the enterprise shell and navigation system to ensure layout integrity, navigation state management, and visual consistency across all standard viewports.
+
+**Verification Scope**:
+- Root container height constraints
+- Sidebar fixed positioning
+- Header sticky behavior
+- Navigation active state management
+- Main content area scrolling
+- Layout integrity across views
+
+**Verification Results**:
+
+✅ **Layout Constraints Verified**:
+- Root containers (`html`, `body`, `#root`) have explicit `height: 100%` and `overflow: hidden` (lines 86-95 in `src/index.css`)
+- `.app-container` has `height: 100vh` and `overflow: hidden` (lines 437-443)
+- `.sidebar` is fixed positioned with `width: 240px` and `height: 100vh` (lines 461-473)
+- `.main-content-wrapper` has `margin-left: 240px` to offset fixed sidebar (lines 445-452)
+- `.app-main` has `flex: 1` and `overflow-y: auto` for scrolling (lines 454-459)
+- `.sticky-header` has proper sticky positioning (lines 605-618, 620-633)
+
+✅ **Navigation State Management Verified**:
+- Active view state correctly passed from `App.tsx` to `Sidebar` component
+- Active styling applied correctly with green background tint (`rgba(15, 46, 46, 0.1)` at line 552)
+- Framer Motion animation for active background works smoothly (lines 68-89 in `Sidebar.tsx`)
+- All 15 navigation items defined in `Sidebar.tsx` (lines 36-52)
+- View routing correctly implemented in `App.tsx` (lines 156-347)
+
+✅ **Visual Behavior Verified** (Browser Testing):
+- **Tested Views**: Dashboard, Operations, Land, Construction, Capital, Waterfall
+- **Sidebar**: Remains fixed during main content scroll ✓
+- **Header**: Remains sticky at top during scroll ✓
+- **Main Content**: Scrolls independently of sidebar and header ✓
+- **Active State**: Correctly highlights current view with visual feedback ✓
+- **Layout Stability**: No layout collapse or flickering observed ✓
+
+⚠️ **Known Issue Discovered**:
+- **P&L Statement View**: Runtime error (`TypeError: Cannot read properties of undefined (reading 'length')` in `filterAndAggregatePnl`)
+- **Impact**: View-specific bug, does not affect layout or navigation system
+- **Action Required**: Core Logic Agent to investigate and fix
+
+**Component Architecture Verified**:
+
+1. **`MainLayout.tsx`** (lines 1-35):
+   - Correctly renders `.app-container` wrapper
+   - Passes `activeView` and `onViewChange` to Sidebar
+   - Renders header in `.main-content-wrapper`
+   - Renders children in `.app-main`
+
+2. **`Sidebar.tsx`** (lines 1-157):
+   - Receives and uses `activeView` prop correctly
+   - Applies `active` class to current view (line 91)
+   - Uses Framer Motion for smooth active state animation
+   - Includes all 15 navigation items with icons
+
+3. **`Header.tsx`** (lines 1-210):
+   - Uses `.sticky-header` class for sticky positioning
+   - Renders scenario selector and action buttons
+   - Shows guest mode indicator when applicable
+
+4. **`App.tsx`** (lines 1-423):
+   - Uses `useState` for `activeView` state management
+   - Passes state correctly to MainLayout
+   - Implements complete view routing with all 15 views
+
+**Navigation Items (15 total)**:
+1. Dashboard
+2. Operations
+3. Land
+4. Construction
+5. Capital
+6. Waterfall
+7. P&L Statement (⚠️ has runtime error)
+8. Cash Flow
+9. Risk
+10. Liquidity
+11. Comparison
+12. Governance
+13. Portfolio
+14. REaaS
+15. Glossary
+
+**Recordings**:
+- `navigation_flow_test_1764078118359.webp`: Initial navigation test through 6 views
+- `remaining_views_test_1764078428985.webp`: Attempted remaining views test (blocked by P&L error)
+
+**Acceptance Criteria**:
+- ✅ Sidebar navigation works flawlessly on tested views
+- ✅ Root containers have explicit height to prevent layout collapse
+- ✅ Active state correctly reflects current view
+- ✅ Sidebar remains fixed during scroll
+- ✅ Header remains sticky during scroll
+- ✅ Main content scrolls independently
+- ⚠️ P&L Statement view requires bug fix (separate ticket)
+
+**UI Agent**:
+- ✅ Verified layout constraints in `src/index.css`
+- ✅ Verified component structure in `src/components/layout/*`
+- ✅ Tested navigation flow via browser automation
+- ✅ Documented verification results in ARCHITECTURE.md
+
+**Next Steps**:
+- Core Logic Agent: Fix P&L Statement view error
+- QA Agent: Complete full navigation test after P&L fix
+- UI Agent: Test remaining 9 views after P&L fix
 
 ### v1.1.4 – Context Provider Restoration (Hotfix)
 

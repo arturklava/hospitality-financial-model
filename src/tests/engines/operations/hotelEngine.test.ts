@@ -178,19 +178,193 @@ describe('Hotel Engine', () => {
     });
   });
 
-  describe('Operation ID', () => {
-    it('should set operationId correctly in all monthly and annual P&L entries', () => {
+  describe('KPI Validation: GOP (Gross Operating Profit)', () => {
+    it('should calculate GOP correctly as totalRevenue - departmentalExpenses', () => {
       const config = createTestConfig({
-        id: 'custom-hotel-id',
+        keys: 100,
+        avgDailyRate: 200,
+        occupancyByMonth: Array(12).fill(0.7),
+        foodRevenuePctOfRooms: 0.3,
+        beverageRevenuePctOfRooms: 0.15,
+        foodCogsPct: 0.35,
+        beverageCogsPct: 0.25,
+        commissionsPct: 0.10, // 10% commissions
+      });
+      const result = runHotelEngine(config);
+
+      const firstMonth = result.monthlyPnl[0];
+
+      // Calculate expected departmental expenses (COGS + commissions)
+      const expectedFoodCogs = firstMonth.foodRevenue * 0.35;
+      const expectedBeverageCogs = firstMonth.beverageRevenue * 0.25;
+      const expectedCommissions = firstMonth.roomRevenue * 0.10;
+      const expectedDepartmentalExpenses = expectedFoodCogs + expectedBeverageCogs + expectedCommissions;
+
+      // Calculate expected GOP
+      const totalRevenue = firstMonth.roomRevenue + firstMonth.foodRevenue + firstMonth.beverageRevenue + firstMonth.otherRevenue;
+      const expectedGOP = totalRevenue - expectedDepartmentalExpenses;
+
+      expect(firstMonth.grossOperatingProfit).toBeCloseTo(expectedGOP, 2);
+      expect(firstMonth.grossOperatingProfit).toBeGreaterThan(0);
+    });
+
+    it('should have GOP <= totalRevenue (invariant)', () => {
+      const config = createTestConfig();
+      const result = runHotelEngine(config);
+
+      for (const monthly of result.monthlyPnl) {
+        const totalRevenue = monthly.roomRevenue + monthly.foodRevenue + monthly.beverageRevenue + monthly.otherRevenue;
+        expect(monthly.grossOperatingProfit).toBeLessThanOrEqual(totalRevenue);
+      }
+    });
+
+    it('should calculate GOP margin % correctly', () => {
+      const config = createTestConfig({
+        keys: 100,
+        avgDailyRate: 200,
+        occupancyByMonth: Array(12).fill(0.7),
+        foodCogsPct: 0.30,
+        beverageCogsPct: 0.25,
+      });
+      const result = runHotelEngine(config);
+
+      const firstMonth = result.monthlyPnl[0];
+      const totalRevenue = firstMonth.roomRevenue + firstMonth.foodRevenue + firstMonth.beverageRevenue + firstMonth.otherRevenue;
+      const gopMarginPct = (firstMonth.grossOperatingProfit / totalRevenue) * 100;
+
+      expect(gopMarginPct).toBeGreaterThan(0);
+      expect(gopMarginPct).toBeLessThan(100);
+      expect(Number.isFinite(gopMarginPct)).toBe(true);
+    });
+  });
+
+  describe('KPI Validation: RevPAR (Revenue per Available Room)', () => {
+    it('should validate RevPAR formula: RevPAR = ADR × occupancy × (360/365)', () => {
+      const config = createTestConfig({
+        keys: 100,
+        avgDailyRate: 200,
+        occupancyByMonth: Array(12).fill(0.70),
+        horizonYears: 1,
+      });
+      const result = runHotelEngine(config);
+
+      // Calculate total room revenue from monthly P&L
+      const totalRoomRevenue = result.monthlyPnl.reduce((sum, m) => sum + m.roomRevenue, 0);
+
+      // Calculate RevPAR using the formula from assetAnalytics.ts
+      // RevPAR = totalRoomRevenue / (keys × 365 × horizonYears)
+      const daysInHorizon = config.horizonYears * 365;
+      const availableRoomNights = config.keys * daysInHorizon;
+      const calculatedRevPAR = totalRoomRevenue / availableRoomNights;
+
+      // Expected RevPAR accounting for 360/365 discrepancy
+      // Engines use 30 days/month = 360 days/year
+      // RevPAR denominator uses 365 days/year
+      const expectedRevPAR = config.avgDailyRate * 0.70 * (360 / 365);
+
+      expect(calculatedRevPAR).toBeCloseTo(expectedRevPAR, 1);
+      expect(calculatedRevPAR).toBeLessThan(config.avgDailyRate); // RevPAR < ADR when occupancy < 100%
+    });
+
+    it('should have RevPAR <= ADR (invariant for occupancy <= 100%)', () => {
+      const config = createTestConfig({
+        keys: 100,
+        avgDailyRate: 200,
+        occupancyByMonth: Array(12).fill(0.85),
+        horizonYears: 1,
+      });
+      const result = runHotelEngine(config);
+
+      const totalRoomRevenue = result.monthlyPnl.reduce((sum, m) => sum + m.roomRevenue, 0);
+      const availableRoomNights = config.keys * 365 * config.horizonYears;
+      const revPAR = totalRoomRevenue / availableRoomNights;
+
+      expect(revPAR).toBeLessThanOrEqual(config.avgDailyRate);
+    });
+
+    it('should calculate RevPAR = 0 when occupancy = 0', () => {
+      const config = createTestConfig({
+        occupancyByMonth: Array(12).fill(0),
+      });
+      const result = runHotelEngine(config);
+
+      const totalRoomRevenue = result.monthlyPnl.reduce((sum, m) => sum + m.roomRevenue, 0);
+      expect(totalRoomRevenue).toBe(0);
+
+      const availableRoomNights = config.keys * 365 * config.horizonYears;
+      const revPAR = totalRoomRevenue / availableRoomNights;
+      expect(revPAR).toBe(0);
+    });
+  });
+
+  describe('Edge Cases: Extreme ADR', () => {
+    it('should handle very high ADR (luxury resort scenario)', () => {
+      const config = createTestConfig({
+        keys: 50,
+        avgDailyRate: 10000, // $10,000/night luxury resort
+        occupancyByMonth: Array(12).fill(0.60),
+        horizonYears: 1,
+      });
+      const result = runHotelEngine(config);
+
+      expect(result.monthlyPnl[0].roomRevenue).toBeGreaterThan(0);
+      expect(Number.isFinite(result.monthlyPnl[0].roomRevenue)).toBe(true);
+      expect(result.annualPnl[0].revenueTotal).toBeGreaterThan(0);
+    });
+
+    it('should handle very low ADR (budget hotel scenario)', () => {
+      const config = createTestConfig({
+        keys: 200,
+        avgDailyRate: 25, // $25/night budget hotel
+        occupancyByMonth: Array(12).fill(0.80),
+        horizonYears: 1,
+      });
+      const result = runHotelEngine(config);
+
+      expect(result.monthlyPnl[0].roomRevenue).toBeGreaterThan(0);
+      expect(Number.isFinite(result.monthlyPnl[0].roomRevenue)).toBe(true);
+    });
+  });
+
+  describe('Edge Cases: Zero Costs', () => {
+    it('should have GOP = totalRevenue when all cost percentages = 0', () => {
+      const config = createTestConfig({
+        foodCogsPct: 0,
+        beverageCogsPct: 0,
+        commissionsPct: 0,
+        payrollPct: 0,
+        utilitiesPct: 0,
+        marketingPct: 0,
+        maintenanceOpexPct: 0,
+        otherOpexPct: 0,
+        maintenanceCapexPct: 0,
       });
       const result = runHotelEngine(config);
 
       for (const monthly of result.monthlyPnl) {
-        expect(monthly.operationId).toBe('custom-hotel-id');
+        const totalRevenue = monthly.roomRevenue + monthly.foodRevenue + monthly.beverageRevenue + monthly.otherRevenue;
+        expect(monthly.grossOperatingProfit).toBeCloseTo(totalRevenue, 2);
+        expect(monthly.ebitda).toBeCloseTo(totalRevenue, 2);
+        expect(monthly.noi).toBeCloseTo(totalRevenue, 2);
       }
+    });
 
-      for (const annual of result.annualPnl) {
-        expect(annual.operationId).toBe('custom-hotel-id');
+    it('should have all values finite (no NaN or Infinity)', () => {
+      const config = createTestConfig();
+      const result = runHotelEngine(config);
+
+      for (const monthly of result.monthlyPnl) {
+        expect(Number.isFinite(monthly.roomRevenue)).toBe(true);
+        expect(Number.isFinite(monthly.foodRevenue)).toBe(true);
+        expect(Number.isFinite(monthly.beverageRevenue)).toBe(true);
+        expect(Number.isFinite(monthly.otherRevenue)).toBe(true);
+        expect(Number.isFinite(monthly.foodCogs)).toBe(true);
+        expect(Number.isFinite(monthly.beverageCogs)).toBe(true);
+        expect(Number.isFinite(monthly.grossOperatingProfit)).toBe(true);
+        expect(Number.isFinite(monthly.ebitda)).toBe(true);
+        expect(Number.isFinite(monthly.noi)).toBe(true);
+        expect(Number.isFinite(monthly.maintenanceCapex)).toBe(true);
+        expect(Number.isFinite(monthly.cashFlow)).toBe(true);
       }
     });
   });

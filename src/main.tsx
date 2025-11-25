@@ -9,7 +9,7 @@ import { ThemeProvider } from './ui/contexts/ThemeContext'
 import { AuthProvider } from './contexts/AuthContext'
 
 // Load React Grab in development only
-if (process.env.NODE_ENV === "development") {
+if (import.meta.env.DEV) {
   import("react-grab");
 }
 

@@ -324,33 +324,39 @@ function calculateConstructionOutflowByYear(
   // Priority: constructionConfig > constructionDuration (legacy)
   if (projectConfig.constructionConfig) {
     const constructionConfig = projectConfig.constructionConfig;
-    const monthlyDrawdowns = generateDrawdownCurve(
+    const drawdownResult = generateDrawdownCurve(
       constructionConfig.totalBudget,
       constructionConfig.durationMonths,
       constructionConfig.curveType === 's-curve' ? 's-curve' : 'linear'
     );
+    if (!drawdownResult.ok) {
+      return constructionOutflowByYear;
+    }
     
     // Distribute monthly drawdowns to years (matching projectEngine logic)
-    for (let i = 0; i < monthlyDrawdowns.length; i++) {
+    for (let i = 0; i < drawdownResult.data.length; i++) {
       const monthIndex = constructionConfig.startMonth + i;
       const yearIndex = Math.floor(monthIndex / 12);
       if (yearIndex >= 0 && yearIndex < horizonYears) {
-        constructionOutflowByYear[yearIndex] += monthlyDrawdowns[i];
+        constructionOutflowByYear[yearIndex] += drawdownResult.data[i];
       } else if (yearIndex < 0) {
         // Negative months: aggregate into Year 0
-        constructionOutflowByYear[0] += monthlyDrawdowns[i];
+        constructionOutflowByYear[0] += drawdownResult.data[i];
       }
     }
   } else if (projectConfig.constructionDuration && projectConfig.constructionDuration > 0) {
     // Legacy behavior - use constructionDuration
-    const monthlyDrawdowns = generateDrawdownCurve(
+    const drawdownResult = generateDrawdownCurve(
       projectConfig.initialInvestment,
       projectConfig.constructionDuration,
       projectConfig.constructionCurve ?? 's-curve'
     );
+    if (!drawdownResult.ok) {
+      return constructionOutflowByYear;
+    }
     
     // Aggregate monthly to annual (assume all construction occurs before/in Year 0)
-    const constructionOutflowYear0 = monthlyDrawdowns.reduce((sum, drawdown) => sum + drawdown, 0);
+    const constructionOutflowYear0 = drawdownResult.data.reduce((sum, drawdown) => sum + drawdown, 0);
     constructionOutflowByYear[0] = constructionOutflowYear0;
   }
   

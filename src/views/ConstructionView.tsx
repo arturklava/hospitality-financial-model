@@ -51,12 +51,15 @@ export function ConstructionView({ input, onProjectConfigChange }: ConstructionV
     if (duration <= 0 || budget <= 0) {
       return [];
     }
-    try {
-      return generateDrawdownCurve(budget, duration, curveShape);
-    } catch (error) {
-      console.error('Error generating drawdown curve:', error);
+    const result = generateDrawdownCurve(budget, duration, curveShape);
+    if (!result.ok) {
+      console.error('Error generating drawdown curve:', result.error);
       return [];
     }
+    if (result.warnings.length > 0) {
+      console.warn('Drawdown curve warnings:', result.warnings.join('; '));
+    }
+    return result.data;
   }, [budget, duration, curveShape]);
 
   // Calculate funding distribution (debt vs equity)
@@ -70,23 +73,15 @@ export function ConstructionView({ input, onProjectConfigChange }: ConstructionV
     const totalDebt = normalized.totalDebt;
     const totalEquity = normalized.totalEquity;
 
-    try {
-      const { equityDraws, debtDraws } = distributeFunding(
-        drawdownCurve,
-        totalDebt,
-        totalEquity,
-        'equity_first'
-      );
+    const distributionResult = distributeFunding(
+      drawdownCurve,
+      totalDebt,
+      totalEquity,
+      'equity_first'
+    );
 
-      return drawdownCurve.map((drawdown, index) => ({
-        month: index + 1,
-        monthLabel: `Month ${index + 1}`,
-        drawdown,
-        equity: equityDraws[index],
-        debt: debtDraws[index],
-      }));
-    } catch (error) {
-      console.error('Error distributing funding:', error);
+    if (!distributionResult.ok) {
+      console.error('Error distributing funding:', distributionResult.error);
       return drawdownCurve.map((drawdown, index) => ({
         month: index + 1,
         monthLabel: `Month ${index + 1}`,
@@ -95,6 +90,20 @@ export function ConstructionView({ input, onProjectConfigChange }: ConstructionV
         debt: 0,
       }));
     }
+
+    if (distributionResult.warnings.length > 0) {
+      console.warn('Funding distribution warnings:', distributionResult.warnings.join('; '));
+    }
+
+    const { equityDraws, debtDraws } = distributionResult.data;
+
+    return drawdownCurve.map((drawdown, index) => ({
+      month: index + 1,
+      monthLabel: `Month ${index + 1}`,
+      drawdown,
+      equity: equityDraws[index],
+      debt: debtDraws[index],
+    }));
   }, [drawdownCurve, capitalConfig]);
 
   // Prepare data for line chart (cumulative drawdown)

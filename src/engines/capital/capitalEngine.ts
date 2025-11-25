@@ -112,23 +112,24 @@ function computeTrancheSchedule(
   for (let yearIndex = 0; yearIndex < horizonYears; yearIndex++) {
     // v0.9.1 FIX: Check refinancing FIRST, before ANY other calculations
     const isRefinancingYear = refinanceAtYear !== undefined && yearIndex === refinanceAtYear;
-    
+
     // v2.10: Handle refinancing year - supports partial refinancing
     if (isRefinancingYear && previousEndingBalance > 0) {
       // The beginningBalance is the balance at the START of the refinancing year
       const beginningBalance = previousEndingBalance;
-      
+
       // v2.10: Calculate principal payment based on refinanceAmountPct
       // Principal Payment = beginningBalance * refinanceAmountPct
       const principal = beginningBalance * refinanceAmountPct;
-      
+
       // v2.10: Ending Balance = beginningBalance - Principal
       // If partial refinancing (< 100%), remainder stays as balance
-      const endingBalance = beginningBalance - principal;
-      
+      // FIX: Explicitly set to 0 if full refinance to avoid floating point artifacts
+      const endingBalance = refinanceAmountPct >= 1.0 ? 0 : beginningBalance - principal;
+
       // Calculate interest on the beginning balance
       const interest = beginningBalance * rate;
-      
+
       entries.push({
         yearIndex,
         beginningBalance: beginningBalance,
@@ -136,7 +137,7 @@ function computeTrancheSchedule(
         principal: principal, // v2.10: Can be partial if refinanceAmountPct < 1.0
         endingBalance: endingBalance, // v2.10: Remaining balance if partial refinancing
       });
-      
+
       previousEndingBalance = endingBalance;
       continue;
     }
@@ -247,7 +248,7 @@ function calculateTransactionCosts(
   for (let yearIndex = 0; yearIndex < horizonYears; yearIndex++) {
     const isMaturityYear = yearIndex === startYear + term - 1;
     const isRefinancingYear = refinanceAtYear !== undefined && yearIndex === refinanceAtYear;
-    
+
     if ((isMaturityYear || isRefinancingYear) && exitFeePct > 0) {
       const entry = scheduleEntries[yearIndex];
       if (entry) {
@@ -326,7 +327,7 @@ function aggregateDebtSchedules(
         aggregateInterest += entry.interest;
         aggregatePrincipal += entry.principal;
         aggregateEndingBalance += entry.endingBalance;
-        
+
         // v2.10: Calculate senior debt service (sum of tranches with seniority === 'senior')
         const seniority = trancheSeniorityMap[trancheSchedule.trancheId];
         if (seniority === 'senior') {
@@ -344,7 +345,7 @@ function aggregateDebtSchedules(
       principal: aggregatePrincipal,
       endingBalance: aggregateEndingBalance,
     });
-    
+
     // v2.10: Store senior debt service for this year
     seniorDebtServiceByYear[yearIndex] = seniorDebtService;
   }
@@ -421,13 +422,13 @@ function computeMonthlyTrancheSchedule(
 
     // Check refinancing first
     const isRefinancingMonth = refinanceAtMonth !== undefined && monthNumber === refinanceAtMonth;
-    
+
     if (isRefinancingMonth && previousEndingBalance > 0) {
       const beginningBalance = previousEndingBalance;
       const principal = beginningBalance;
       const endingBalance = 0;
       const interest = beginningBalance * monthlyRate;
-      
+
       entries.push({
         yearIndex,
         monthIndex,
@@ -438,7 +439,7 @@ function computeMonthlyTrancheSchedule(
         principal,
         endingBalance,
       });
-      
+
       previousEndingBalance = 0;
       continue;
     }
@@ -597,7 +598,7 @@ function calculateMonthlyCashFlow(
     const debtService = debtServiceEntry?.totalDebtService ?? 0;
     const maintenanceCapex = monthlyPnl.maintenanceCapex;
     const monthlyCashFlowValue = noi - debtService - maintenanceCapex;
-    
+
     cumulativeCashFlow += monthlyCashFlowValue;
 
     monthlyCashFlow.push({
@@ -702,12 +703,12 @@ export function runCapitalEngine(
     if (initialPrincipal > 0 && tranche.termYears > 0) {
       const entries = computeTrancheSchedule(tranche, horizonYears);
       const transactionCosts = calculateTransactionCosts(tranche, entries, horizonYears);
-      
+
       // v0.6: Calculate net proceeds (initial principal minus origination fee)
       const netProceeds = initialPrincipal - transactionCosts.originationFee;
       totalNetProceeds += netProceeds;
       totalOriginationFees += transactionCosts.originationFee;
-      
+
       trancheSchedules.push({
         trancheId: tranche.id,
         entries,
@@ -723,13 +724,15 @@ export function runCapitalEngine(
       const diff = Math.abs(totalRepaid - initialPrincipal);
 
       if (diff > tolerance) {
-        console.warn(
-          `[Capital Engine] Debt schedule invariant violation for tranche ${tranche.id}: ` +
-            `sum(principal) + finalBalance = ${totalRepaid.toFixed(2)}, ` +
-            `expected = ${initialPrincipal.toFixed(2)}, ` +
-            `diff = ${diff.toFixed(2)}. ` +
-            `Term: ${tranche.termYears}, AmortizationType: ${tranche.amortizationType ?? 'mortgage'}`
-        );
+        const errorMsg = `[Capital Engine] Debt schedule invariant violation for tranche ${tranche.id}: ` +
+          `sum(principal) + finalBalance = ${totalRepaid.toFixed(2)}, ` +
+          `expected = ${initialPrincipal.toFixed(2)}, ` +
+          `diff = ${diff.toFixed(2)}. ` +
+          `Term: ${tranche.termYears}, AmortizationType: ${tranche.amortizationType ?? 'mortgage'}`;
+
+        console.error(errorMsg);
+        // Strict mode: throw error to ensure data integrity
+        throw new Error(errorMsg);
       }
     }
   }
@@ -738,23 +741,23 @@ export function runCapitalEngine(
   const { debtSchedule, totalExitFeesByYear, seniorDebtServiceByYear } = trancheSchedules.length > 0
     ? aggregateDebtSchedules(trancheSchedules, capitalConfig, horizonYears)
     : {
-        debtSchedule: (() => {
-          // Zero debt schedule
-          const entries: DebtScheduleEntry[] = [];
-          for (let yearIndex = 0; yearIndex < horizonYears; yearIndex++) {
-            entries.push({
-              yearIndex,
-              beginningBalance: 0,
-              interest: 0,
-              principal: 0,
-              endingBalance: 0,
-            });
-          }
-          return { entries };
-        })(),
-        totalExitFeesByYear: new Array(horizonYears).fill(0),
-        seniorDebtServiceByYear: new Array(horizonYears).fill(0), // v2.10: Senior debt service
-      };
+      debtSchedule: (() => {
+        // Zero debt schedule
+        const entries: DebtScheduleEntry[] = [];
+        for (let yearIndex = 0; yearIndex < horizonYears; yearIndex++) {
+          entries.push({
+            yearIndex,
+            beginningBalance: 0,
+            interest: 0,
+            principal: 0,
+            endingBalance: 0,
+          });
+        }
+        return { entries };
+      })(),
+      totalExitFeesByYear: new Array(horizonYears).fill(0),
+      seniorDebtServiceByYear: new Array(horizonYears).fill(0), // v2.10: Senior debt service
+    };
 
   // Compute levered FCF (using aggregate debt service including exit fees)
   const leveredFcfByYear: LeveredFcf[] = [];
@@ -849,10 +852,10 @@ export function runCapitalEngine(
     // Aggregate monthly debt schedules
     if (trancheMonthlySchedules.length > 0) {
       monthlyDebtSchedule = aggregateMonthlyDebtSchedules(trancheMonthlySchedules, horizonYears);
-      
+
       // Calculate monthly cash flow
       monthlyCashFlow = calculateMonthlyCashFlow(consolidatedMonthlyPnl, monthlyDebtSchedule);
-      
+
       // Calculate monthly debt KPIs
       monthlyDebtKpis = calculateMonthlyDebtKpis(
         consolidatedMonthlyPnl,

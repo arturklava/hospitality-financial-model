@@ -12,15 +12,26 @@ import type {
   CapitalStructureConfig,
   BreakevenMetrics,
 } from '@domain/types';
+import type { DetailedAuditTrace } from '@domain/audit';
 import {
   npv,
   irr,
   equityMultiple,
   paybackPeriod,
 } from '@domain/financial';
+import { projectConfigSchema, consolidatedAnnualPnlSchema } from '@domain/schemas';
 import { calculateWACC } from '@engines/capital/capitalEngine';
 import { generateDrawdownCurve } from './constructionEngine';
 import { generateAllLandFlows, type MonthlyLandFlow } from './landEngine';
+import {
+  engineFailure,
+  engineSuccess,
+  mapZodIssues,
+  type EngineResult,
+} from '@engines/result';
+import { z } from 'zod';
+
+const consolidatedPnlArraySchema = z.array(consolidatedAnnualPnlSchema).min(1);
 
 /**
  * Runs the project engine to calculate unlevered free cash flow, DCF valuation, and KPIs.
@@ -34,19 +45,64 @@ export function runProjectEngine(
   consolidatedPnl: ConsolidatedAnnualPnl[],
   config: ProjectConfig,
   capitalConfig?: CapitalStructureConfig
-): ProjectEngineResult {
-  const N = consolidatedPnl.length;
-  const r = config.discountRate;
-  const g = config.terminalGrowthRate;
+): EngineResult<ProjectEngineResult> {
+  const parsedPnl = consolidatedPnlArraySchema.safeParse(consolidatedPnl);
+  if (!parsedPnl.success) {
+    return engineFailure(
+      'PROJECT_INVALID_PNL',
+      'Consolidated P&L failed validation',
+      {
+        issues: mapZodIssues(parsedPnl.error.issues),
+        auditTrace: [
+          {
+            field: 'project_consolidated_pnl_validation',
+            formula: 'Zod schema validation',
+            values: { entries: consolidatedPnl.length },
+            result: 0,
+            source: 'projectEngine',
+          },
+        ],
+      }
+    );
+  }
+
+  const parsedConfig = projectConfigSchema.safeParse(config);
+  if (!parsedConfig.success) {
+    return engineFailure(
+      'PROJECT_INVALID_CONFIG',
+      'Project configuration failed validation',
+      {
+        issues: mapZodIssues(parsedConfig.error.issues),
+        auditTrace: [
+          {
+            field: 'project_config_validation',
+            formula: 'Zod schema validation',
+            values: { workingCapitalPercentage: config.workingCapitalPercentage },
+            result: 0,
+            source: 'projectEngine',
+          },
+        ],
+      }
+    );
+  }
+
+  const safePnl = parsedPnl.data;
+  const safeConfig = parsedConfig.data;
+  const auditTrace: DetailedAuditTrace[] = [];
+  const warnings: string[] = [];
+
+  const N = safePnl.length;
+  const r = safeConfig.discountRate;
+  const g = safeConfig.terminalGrowthRate;
 
   // Working capital model
   const workingCapitalPercentage =
-    config.workingCapitalPercentage ?? config.workingCapitalPercent ?? 0;
+    safeConfig.workingCapitalPercentage ?? safeConfig.workingCapitalPercent ?? 0;
 
   // Calculate working capital for each year
   const workingCapital: number[] = [];
   for (let t = 0; t < N; t++) {
-    const revenue_t = consolidatedPnl[t].revenueTotal;
+    const revenue_t = safePnl[t].revenueTotal;
     const wc_t = revenue_t * workingCapitalPercentage;
     workingCapital.push(wc_t);
   }
@@ -61,9 +117,19 @@ export function runProjectEngine(
     }
   }
 
+  auditTrace.push({
+    field: 'project_working_capital',
+    formula: 'Working capital = revenue × %; change = current - previous',
+    values: {
+      workingCapitalPercentage,
+    },
+    result: 1,
+    source: 'projectEngine',
+  });
+
   // v5.0: Calculate land flows (if applicable)
-  const landFlows: MonthlyLandFlow[] = config.landConfigs && config.landConfigs.length > 0
-    ? generateAllLandFlows(config.landConfigs, 0)
+  const landFlows: MonthlyLandFlow[] = safeConfig.landConfigs && safeConfig.landConfigs.length > 0
+    ? generateAllLandFlows(safeConfig.landConfigs, 0)
     : [];
   
   // Aggregate land flows to annual (negative months before Year 0, Year 0, etc.)
@@ -88,44 +154,66 @@ export function runProjectEngine(
   // Priority: constructionConfig > constructionDuration (legacy)
   let constructionOutflowByYear: number[] = new Array(N).fill(0);
   
-  if (config.constructionConfig) {
-    // v5.1: Use ConstructionConfig
-    const constructionConfig = config.constructionConfig;
-    const monthlyDrawdowns = generateDrawdownCurve(
+  if (safeConfig.constructionConfig) {
+    const constructionConfig = safeConfig.constructionConfig;
+    const drawdownResult = generateDrawdownCurve(
       constructionConfig.totalBudget,
       constructionConfig.durationMonths,
       constructionConfig.curveType === 's-curve' ? 's-curve' : 'linear'
     );
-    
-    // Distribute monthly drawdowns to years
-    for (let i = 0; i < monthlyDrawdowns.length; i++) {
+    if (!drawdownResult.ok) {
+      return engineFailure(
+        'PROJECT_CONSTRUCTION_CURVE_FAILED',
+        'Construction drawdown generation failed',
+        {
+          issues: drawdownResult.error.issues,
+          auditTrace: drawdownResult.auditTrace,
+        }
+      );
+    }
+    auditTrace.push(...drawdownResult.auditTrace);
+    if (drawdownResult.warnings.length > 0) {
+      warnings.push(...drawdownResult.warnings);
+    }
+
+    for (let i = 0; i < drawdownResult.data.length; i++) {
       const monthIndex = constructionConfig.startMonth + i;
       const yearIndex = Math.floor(monthIndex / 12);
       if (yearIndex >= 0 && yearIndex < N) {
-        constructionOutflowByYear[yearIndex] += monthlyDrawdowns[i];
+        constructionOutflowByYear[yearIndex] += drawdownResult.data[i];
       } else if (yearIndex < 0) {
-        // Negative months: aggregate into Year 0
-        constructionOutflowByYear[0] += monthlyDrawdowns[i];
+        constructionOutflowByYear[0] += drawdownResult.data[i];
       }
     }
-  } else if (config.constructionDuration && config.constructionDuration > 0) {
-    // v3.6: Legacy behavior - use constructionDuration
-    const monthlyDrawdowns = generateDrawdownCurve(
-      config.initialInvestment,
-      config.constructionDuration,
-      config.constructionCurve ?? 's-curve'
+  } else if (safeConfig.constructionDuration && safeConfig.constructionDuration > 0) {
+    const drawdownResult = generateDrawdownCurve(
+      safeConfig.initialInvestment,
+      safeConfig.constructionDuration,
+      safeConfig.constructionCurve ?? 's-curve'
     );
-    
-    // Aggregate monthly to annual (assume all construction occurs before/in Year 0)
-    const constructionOutflowYear0 = monthlyDrawdowns.reduce((sum, drawdown) => sum + drawdown, 0);
+    if (!drawdownResult.ok) {
+      return engineFailure(
+        'PROJECT_CONSTRUCTION_CURVE_FAILED',
+        'Construction drawdown generation failed',
+        {
+          issues: drawdownResult.error.issues,
+          auditTrace: drawdownResult.auditTrace,
+        }
+      );
+    }
+    auditTrace.push(...drawdownResult.auditTrace);
+    if (drawdownResult.warnings.length > 0) {
+      warnings.push(...drawdownResult.warnings);
+    }
+
+    const constructionOutflowYear0 = drawdownResult.data.reduce((sum, drawdown) => sum + drawdown, 0);
     constructionOutflowByYear[0] = constructionOutflowYear0;
-    
-    // Invariant: Sum should equal initialInvestment (within floating-point precision)
-    if (Math.abs(constructionOutflowYear0 - config.initialInvestment) > 0.01) {
-      console.warn(
+
+    if (Math.abs(constructionOutflowYear0 - safeConfig.initialInvestment) > 0.01) {
+      warnings.push(
         `[Project Engine] Construction outflow sum (${constructionOutflowYear0}) ` +
-        `does not equal initialInvestment (${config.initialInvestment}). ` +
-        `Difference: ${Math.abs(constructionOutflowYear0 - config.initialInvestment)}`
+        `does not equal initialInvestment (${safeConfig.initialInvestment}). ` +
+        `Difference: ${Math.abs(constructionOutflowYear0 - safeConfig.initialInvestment)}`
       );
     }
   }
@@ -138,8 +226,8 @@ export function runProjectEngine(
   const unleveredFcf: UnleveredFcf[] = [];
   for (let t = 0; t < N; t++) {
     // USALI NOI is already calculated in scenario engine according to USALI standards
-    const noi_t = consolidatedPnl[t].noi; // USALI NOI
-    const maintenanceCapex_t = consolidatedPnl[t].maintenanceCapex;
+    const noi_t = safePnl[t].noi; // USALI NOI
+    const maintenanceCapex_t = safePnl[t].maintenanceCapex;
     const changeInWC_t = changeInWorkingCapital[t];
     
     // v5.0: Subtract land outflow
@@ -153,12 +241,8 @@ export function runProjectEngine(
 
     // Invariant check: UFCF must be finite
     if (!Number.isFinite(ufcf_t)) {
-      console.warn(
-        `[Project Engine] Non-finite UFCF at yearIndex ${t}: ` +
-          `NOI = ${noi_t}, ` +
-          `maintenanceCapex = ${maintenanceCapex_t}, ` +
-          `changeInWC = ${changeInWC_t}, ` +
-          `UFCF = ${ufcf_t}`
+      warnings.push(
+        `[Project Engine] Non-finite UFCF at yearIndex ${t}: NOI=${noi_t}, maintenanceCapex=${maintenanceCapex_t}, changeInWC=${changeInWC_t}`
       );
     }
 
@@ -176,9 +260,9 @@ export function runProjectEngine(
 
   // v5.0/v5.1: If land or construction flows are configured, they're already in UFCF
   // Otherwise, use legacy initialInvestment
-  const hasLandOrConstructionFlows = (config.landConfigs && config.landConfigs.length > 0) ||
-                                      config.constructionConfig ||
-                                      (config.constructionDuration && config.constructionDuration > 0);
+  const hasLandOrConstructionFlows = (safeConfig.landConfigs && safeConfig.landConfigs.length > 0) ||
+                                      safeConfig.constructionConfig ||
+                                      (safeConfig.constructionDuration && safeConfig.constructionDuration > 0);
   
   if (hasLandOrConstructionFlows) {
     // Land and construction outflows are already included in UFCF
@@ -191,7 +275,7 @@ export function runProjectEngine(
     }
   } else {
     // Legacy behavior: separate initial investment
-    cashFlows.push(-config.initialInvestment);
+    cashFlows.push(-safeConfig.initialInvestment);
     
     // Years 1 to N-1: UFCF from previous year
     for (let t = 1; t < N; t++) {
@@ -234,7 +318,7 @@ export function runProjectEngine(
   // Calculate WACC if capitalConfig is provided (v0.7)
   let wacc: number | null = null;
   if (capitalConfig) {
-    const waccMetrics = calculateWACC(config, capitalConfig);
+    const waccMetrics = calculateWACC(safeConfig, capitalConfig);
     wacc = waccMetrics.wacc;
   }
 
@@ -246,11 +330,26 @@ export function runProjectEngine(
     wacc,
   };
 
-  return {
-    unleveredFcf,
-    dcfValuation,
-    projectKpis,
-  };
+  auditTrace.push({
+    field: 'project_dcf',
+    formula: 'DCF valuation (NPV, IRR, Payback, WACC)',
+    values: {
+      discountRate: r,
+      terminalGrowthRate: g,
+    },
+    result: 1,
+    source: 'projectEngine',
+  });
+
+  return engineSuccess(
+    {
+      unleveredFcf,
+      dcfValuation,
+      projectKpis,
+    },
+    auditTrace,
+    warnings
+  );
 }
 
 /**
@@ -328,3 +427,4 @@ export function calculateBreakevenOccupancy(
     method: 'dscr_breakeven',
   };
 }
+

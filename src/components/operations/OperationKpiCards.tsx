@@ -6,7 +6,7 @@
  */
 
 import { useMemo } from 'react';
-import { DollarSign, TrendingUp, Percent, Users, Utensils, ShoppingBag, Building2, Activity } from 'lucide-react';
+import { DollarSign, TrendingUp, Percent, Users, Utensils, Building2, Activity } from 'lucide-react';
 import type { OperationConfig, FullModelOutput } from '../../domain/types';
 import { runScenarioEngine } from '../../engines/scenario/scenarioEngine';
 import { getOperationKpis } from '../../engines/analytics/kpiFactory';

@@ -28,6 +28,11 @@ export const occupancySchema = numberBetween(0, 1);
 export const percentageSchema = numberBetween(0, 1);
 
 /**
+ * Schema for validating strictly positive numbers (> 0).
+ */
+export const strictlyPositiveNumberSchema = z.number().positive();
+
+/**
  * Schema for validating discount rate (typically 0 to 1, but can be higher).
  */
 export const discountRateSchema = z.number().min(0).max(1);
@@ -297,4 +302,289 @@ export const rampUpConfigSchema = z.object({
   applyToOperations: z.boolean(),
   notes: z.string().optional(),
 });
+
+/**
+ * Ownership and lease schemas shared by operation configs.
+ */
+const ownershipModelSchema = z.enum([
+  'BUILD_AND_OPERATE',
+  'BUILD_AND_LEASE_FIXED',
+  'BUILD_AND_LEASE_VARIABLE',
+  'CO_INVEST_OPCO',
+]);
+
+const leaseTermsSchema = z.object({
+  baseRent: z.number().nonnegative(),
+  variableRentPct: percentageSchema.optional(),
+  variableRentBasis: z.enum(['revenue', 'noi']).optional(),
+});
+
+const occupancyArraySchema = z.array(occupancySchema).length(12);
+const seasonalityCurveSchema = z.array(z.number()).length(12);
+const turnoverArraySchema = z.array(z.number().nonnegative()).length(12);
+
+const operationBaseSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  startYear: yearSchema,
+  horizonYears: z.number().int().min(1).max(50),
+  ownershipModel: ownershipModelSchema.optional(),
+  ownershipPct: percentageSchema.optional(),
+  leaseTerms: leaseTermsSchema.optional(),
+  isREaaS: z.boolean().optional(),
+  isActive: z.boolean().optional(),
+  rampUpConfig: rampUpConfigSchema.optional(),
+});
+
+export const hotelConfigSchema = operationBaseSchema.extend({
+  operationType: z.literal('HOTEL'),
+  keys: strictlyPositiveNumberSchema,
+  avgDailyRate: strictlyPositiveNumberSchema,
+  occupancyByMonth: occupancyArraySchema,
+  foodRevenuePctOfRooms: percentageSchema,
+  beverageRevenuePctOfRooms: percentageSchema,
+  otherRevenuePctOfRooms: percentageSchema,
+  foodCogsPct: percentageSchema,
+  beverageCogsPct: percentageSchema,
+  commissionsPct: percentageSchema.optional(),
+  payrollPct: percentageSchema,
+  utilitiesPct: percentageSchema,
+  marketingPct: percentageSchema,
+  maintenanceOpexPct: percentageSchema,
+  otherOpexPct: percentageSchema,
+  maintenanceCapexPct: percentageSchema,
+  seasonalityCurve: seasonalityCurveSchema.optional(),
+  fixedPayroll: z.number().nonnegative().optional(),
+  fixedOtherExpenses: z.number().nonnegative().optional(),
+}).passthrough();
+
+export const villasConfigSchema = operationBaseSchema.extend({
+  operationType: z.literal('VILLAS'),
+  units: strictlyPositiveNumberSchema,
+  avgNightlyRate: strictlyPositiveNumberSchema,
+  occupancyByMonth: occupancyArraySchema,
+  foodRevenuePctOfRental: percentageSchema,
+  beverageRevenuePctOfRental: percentageSchema,
+  otherRevenuePctOfRental: percentageSchema,
+  foodCogsPct: percentageSchema,
+  beverageCogsPct: percentageSchema,
+  commissionsPct: percentageSchema.optional(),
+  payrollPct: percentageSchema,
+  utilitiesPct: percentageSchema,
+  marketingPct: percentageSchema,
+  maintenanceOpexPct: percentageSchema,
+  otherOpexPct: percentageSchema,
+  maintenanceCapexPct: percentageSchema,
+  seasonalityCurve: seasonalityCurveSchema.optional(),
+  fixedPayroll: z.number().nonnegative().optional(),
+  fixedOtherExpenses: z.number().nonnegative().optional(),
+}).passthrough();
+
+export const restaurantConfigSchema = operationBaseSchema.extend({
+  operationType: z.literal('RESTAURANT'),
+  covers: strictlyPositiveNumberSchema,
+  avgCheck: strictlyPositiveNumberSchema,
+  turnoverByMonth: turnoverArraySchema,
+  foodRevenuePctOfTotal: percentageSchema,
+  beverageRevenuePctOfTotal: percentageSchema,
+  otherRevenuePctOfTotal: percentageSchema,
+  foodCogsPct: percentageSchema,
+  beverageCogsPct: percentageSchema,
+  payrollPct: percentageSchema,
+  utilitiesPct: percentageSchema,
+  marketingPct: percentageSchema,
+  maintenanceOpexPct: percentageSchema,
+  otherOpexPct: percentageSchema,
+  maintenanceCapexPct: percentageSchema,
+  seasonalityCurve: seasonalityCurveSchema.optional(),
+  fixedPayroll: z.number().nonnegative().optional(),
+  fixedOtherExpenses: z.number().nonnegative().optional(),
+}).passthrough();
+
+export const beachClubConfigSchema = operationBaseSchema.extend({
+  operationType: z.literal('BEACH_CLUB'),
+  dailyPasses: strictlyPositiveNumberSchema,
+  avgDailyPassPrice: strictlyPositiveNumberSchema,
+  memberships: z.number().nonnegative(),
+  avgMembershipFee: z.number().nonnegative(),
+  utilizationByMonth: occupancyArraySchema,
+  foodRevenuePctOfTotal: percentageSchema,
+  beverageRevenuePctOfTotal: percentageSchema,
+  otherRevenuePctOfTotal: percentageSchema,
+  foodCogsPct: percentageSchema,
+  beverageCogsPct: percentageSchema,
+  payrollPct: percentageSchema,
+  utilitiesPct: percentageSchema,
+  marketingPct: percentageSchema,
+  maintenanceOpexPct: percentageSchema,
+  otherOpexPct: percentageSchema,
+  maintenanceCapexPct: percentageSchema,
+  seasonalityCurve: seasonalityCurveSchema.optional(),
+  fixedPayroll: z.number().nonnegative().optional(),
+  fixedOtherExpenses: z.number().nonnegative().optional(),
+}).passthrough();
+
+export const racquetConfigSchema = operationBaseSchema.extend({
+  operationType: z.literal('RACQUET'),
+  courts: strictlyPositiveNumberSchema,
+  avgCourtRate: strictlyPositiveNumberSchema,
+  utilizationByMonth: occupancyArraySchema,
+  hoursPerDay: strictlyPositiveNumberSchema,
+  memberships: z.number().nonnegative(),
+  avgMembershipFee: z.number().nonnegative(),
+  foodRevenuePctOfTotal: percentageSchema,
+  beverageRevenuePctOfTotal: percentageSchema,
+  otherRevenuePctOfTotal: percentageSchema,
+  foodCogsPct: percentageSchema,
+  beverageCogsPct: percentageSchema,
+  payrollPct: percentageSchema,
+  utilitiesPct: percentageSchema,
+  marketingPct: percentageSchema,
+  maintenanceOpexPct: percentageSchema,
+  otherOpexPct: percentageSchema,
+  maintenanceCapexPct: percentageSchema,
+  seasonalityCurve: seasonalityCurveSchema.optional(),
+  fixedPayroll: z.number().nonnegative().optional(),
+  fixedOtherExpenses: z.number().nonnegative().optional(),
+}).passthrough();
+
+export const retailConfigSchema = operationBaseSchema.extend({
+  operationType: z.literal('RETAIL'),
+  sqm: strictlyPositiveNumberSchema,
+  avgRentPerSqm: strictlyPositiveNumberSchema,
+  occupancyByMonth: occupancyArraySchema,
+  rentalRevenuePctOfTotal: percentageSchema,
+  otherRevenuePctOfTotal: percentageSchema,
+  payrollPct: percentageSchema,
+  utilitiesPct: percentageSchema,
+  marketingPct: percentageSchema,
+  maintenanceOpexPct: percentageSchema,
+  otherOpexPct: percentageSchema,
+  maintenanceCapexPct: percentageSchema,
+  seasonalityCurve: seasonalityCurveSchema.optional(),
+  fixedPayroll: z.number().nonnegative().optional(),
+  fixedOtherExpenses: z.number().nonnegative().optional(),
+}).passthrough();
+
+export const flexConfigSchema = operationBaseSchema.extend({
+  operationType: z.literal('FLEX'),
+  sqm: strictlyPositiveNumberSchema,
+  avgRentPerSqm: strictlyPositiveNumberSchema,
+  occupancyByMonth: occupancyArraySchema,
+  rentalRevenuePctOfTotal: percentageSchema,
+  otherRevenuePctOfTotal: percentageSchema,
+  payrollPct: percentageSchema,
+  utilitiesPct: percentageSchema,
+  marketingPct: percentageSchema,
+  maintenanceOpexPct: percentageSchema,
+  otherOpexPct: percentageSchema,
+  maintenanceCapexPct: percentageSchema,
+  seasonalityCurve: seasonalityCurveSchema.optional(),
+  fixedPayroll: z.number().nonnegative().optional(),
+  fixedOtherExpenses: z.number().nonnegative().optional(),
+}).passthrough();
+
+export const wellnessConfigSchema = operationBaseSchema.extend({
+  operationType: z.literal('WELLNESS'),
+  memberships: z.number().nonnegative(),
+  avgMembershipFee: z.number().nonnegative(),
+  dailyPasses: z.number().nonnegative(),
+  avgDailyPassPrice: z.number().nonnegative(),
+  utilizationByMonth: occupancyArraySchema,
+  foodRevenuePctOfTotal: percentageSchema,
+  beverageRevenuePctOfTotal: percentageSchema,
+  otherRevenuePctOfTotal: percentageSchema,
+  foodCogsPct: percentageSchema,
+  beverageCogsPct: percentageSchema,
+  payrollPct: percentageSchema,
+  utilitiesPct: percentageSchema,
+  marketingPct: percentageSchema,
+  maintenanceOpexPct: percentageSchema,
+  otherOpexPct: percentageSchema,
+  maintenanceCapexPct: percentageSchema,
+  seasonalityCurve: seasonalityCurveSchema.optional(),
+  fixedPayroll: z.number().nonnegative().optional(),
+  fixedOtherExpenses: z.number().nonnegative().optional(),
+}).passthrough();
+
+export const seniorLivingConfigSchema = operationBaseSchema.extend({
+  operationType: z.literal('SENIOR_LIVING'),
+  units: strictlyPositiveNumberSchema,
+  avgMonthlyRate: strictlyPositiveNumberSchema,
+  occupancyByMonth: occupancyArraySchema,
+  careRevenuePctOfRental: percentageSchema,
+  foodRevenuePctOfRental: percentageSchema,
+  otherRevenuePctOfRental: percentageSchema,
+  foodCogsPct: percentageSchema,
+  careCogsPct: percentageSchema,
+  payrollPct: percentageSchema,
+  utilitiesPct: percentageSchema,
+  marketingPct: percentageSchema,
+  maintenanceOpexPct: percentageSchema,
+  otherOpexPct: percentageSchema,
+  maintenanceCapexPct: percentageSchema,
+  seasonalityCurve: seasonalityCurveSchema.optional(),
+  fixedPayroll: z.number().nonnegative().optional(),
+  fixedOtherExpenses: z.number().nonnegative().optional(),
+}).passthrough();
+
+export const operationConfigSchema = z.union([
+  hotelConfigSchema,
+  villasConfigSchema,
+  restaurantConfigSchema,
+  beachClubConfigSchema,
+  racquetConfigSchema,
+  retailConfigSchema,
+  flexConfigSchema,
+  wellnessConfigSchema,
+  seniorLivingConfigSchema,
+]);
+
+export const projectScenarioSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  startYear: yearSchema,
+  horizonYears: z.number().int().min(1).max(50),
+  operations: z.array(operationConfigSchema).min(1),
+});
+
+export const projectConfigSchema = z.object({
+  discountRate: percentageSchema,
+  terminalGrowthRate: z.number().min(-0.1).max(0.1),
+  initialInvestment: strictlyPositiveNumberSchema,
+  workingCapitalPercentage: percentageSchema.optional(),
+  workingCapitalPercent: percentageSchema.optional(),
+  taxRate: percentageSchema.optional(),
+  landConfigs: z.array(landConfigSchema).optional(),
+  constructionConfig: constructionConfigSchema.optional(),
+  constructionDuration: z.number().int().nonnegative().optional(),
+  constructionCurve: z.enum(['s-curve', 'linear']).optional(),
+});
+
+export const consolidatedAnnualPnlSchema = z.object({
+  yearIndex: z.number().int().nonnegative(),
+  revenueTotal: z.number(),
+  departmentalExpenses: z.number(),
+  gop: z.number(),
+  undistributedExpenses: z.number(),
+  managementFees: z.number().optional(),
+  nonOperatingIncomeExpense: z.number().optional(),
+  noi: z.number(),
+  maintenanceCapex: z.number(),
+  cashFlow: z.number(),
+  cogsTotal: z.number(),
+  opexTotal: z.number(),
+  ebitda: z.number(),
+  roomRevenue: z.number().optional(),
+  foodRevenue: z.number().optional(),
+  beverageRevenue: z.number().optional(),
+  otherRevenue: z.number().optional(),
+  foodCogs: z.number().optional(),
+  beverageCogs: z.number().optional(),
+  payroll: z.number().optional(),
+  utilities: z.number().optional(),
+  marketing: z.number().optional(),
+  maintenanceOpex: z.number().optional(),
+  otherOpex: z.number().optional(),
+}).passthrough();
 

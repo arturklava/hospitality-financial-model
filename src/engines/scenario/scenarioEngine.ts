@@ -13,8 +13,16 @@ import type {
   OperationConfig,
   OwnershipModel,
 } from '@domain/types';
+import type { DetailedAuditTrace } from '@domain/audit';
+import { projectScenarioSchema } from '@domain/schemas';
 import { runOperation, type OperationEngineResult } from '@engines/operations';
 import { calculateSponsorCashFlow } from '@engines/operations/sponsorLogic';
+import {
+  engineFailure,
+  engineSuccess,
+  mapZodIssues,
+  type EngineResult,
+} from '@engines/result';
 
 /**
  * Calculates Sponsor Monthly P&L from Asset Monthly P&L based on ownership model.
@@ -179,6 +187,21 @@ export interface ScenarioEngineResult {
   consolidatedMonthlyPnl: ConsolidatedMonthlyPnl[];  // v2.2: Monthly granularity
 }
 
+function buildScenarioAuditTrace(
+  field: string,
+  scenarioId: string,
+  values: Record<string, number | string | undefined>
+): DetailedAuditTrace {
+  return {
+    field,
+    formula: 'Scenario engine aggregation and validation',
+    values,
+    result: 1,
+    source: 'scenarioEngine',
+    calculationStep: field,
+  };
+}
+
 /**
  * Runs the scenario engine to consolidate multiple operations.
  *
@@ -187,17 +210,62 @@ export interface ScenarioEngineResult {
  */
 export function runScenarioEngine(
   scenario: ProjectScenario
-): ScenarioEngineResult {
-  // Run each operation and collect results
+): EngineResult<ScenarioEngineResult> {
+  const parsedScenario = projectScenarioSchema.safeParse(scenario);
+  if (!parsedScenario.success) {
+    return engineFailure(
+      'SCENARIO_INVALID_CONFIG',
+      'Scenario configuration failed validation',
+      {
+        issues: mapZodIssues(parsedScenario.error.issues),
+        auditTrace: [
+          {
+            field: 'scenario_validation',
+            formula: 'Zod schema validation',
+            values: { scenarioId: scenario.id },
+            result: 0,
+            source: 'scenarioEngine',
+          },
+        ],
+      }
+    );
+  }
+
+  const safeScenario = parsedScenario.data;
+
   const operations: OperationEngineResult[] = [];
-  for (const config of scenario.operations) {
+  const auditTrace: DetailedAuditTrace[] = [];
+  for (const config of safeScenario.operations) {
     const result = runOperation(config);
-    operations.push(result);
+    if (!result.ok) {
+      return engineFailure(
+        'SCENARIO_OPERATION_FAILURE',
+        `Operation ${config.name} failed to execute`,
+        {
+          issues: result.error.issues,
+          details: {
+            failingOperationId: config.id,
+          },
+          auditTrace: [
+            ...(result.auditTrace ?? []),
+            {
+              field: 'scenario_operation_failure',
+              formula: 'Scenario engine stopped on failed operation',
+              values: { scenarioId: safeScenario.id, operationId: config.id },
+              result: 0,
+              source: 'scenarioEngine',
+            },
+          ],
+        }
+      );
+    }
+    auditTrace.push(...result.auditTrace);
+    operations.push(result.data);
   }
 
   // Build consolidated annual P&L
   const consolidatedAnnualPnl: ConsolidatedAnnualPnl[] = [];
-  const horizonYears = scenario.horizonYears;
+  const horizonYears = safeScenario.horizonYears;
 
   for (let yearIndex = 0; yearIndex < horizonYears; yearIndex++) {
     // Sum across all operations' Sponsor P&L for this yearIndex (v1.2: Advanced Asset Dynamics)
@@ -226,7 +294,7 @@ export function runScenarioEngine(
 
     for (let i = 0; i < operations.length; i++) {
       const operation = operations[i];
-      const config = scenario.operations[i];
+      const config = safeScenario.operations[i];
       
       // Find the Asset P&L for this yearIndex
       const assetPnl = operation.annualPnl.find((a) => a.yearIndex === yearIndex);
@@ -349,7 +417,7 @@ export function runScenarioEngine(
   // Collect all monthly P&L entries from all operations
   for (let i = 0; i < operations.length; i++) {
     const operation = operations[i];
-    const config = scenario.operations[i];
+    const config = safeScenario.operations[i];
     
     for (const assetMonthlyPnl of operation.monthlyPnl) {
       // Calculate Sponsor Monthly P&L from Asset Monthly P&L
@@ -439,11 +507,21 @@ export function runScenarioEngine(
   // Sort by monthNumber
   consolidatedMonthlyPnl.sort((a, b) => a.monthNumber - b.monthNumber);
 
-  return {
-    operations,
-    consolidatedAnnualPnl,
-    consolidatedMonthlyPnl,
-  };
+  auditTrace.push(
+    buildScenarioAuditTrace('scenario_consolidation', safeScenario.id, {
+      horizonYears: safeScenario.horizonYears,
+      operationCount: safeScenario.operations.length,
+    })
+  );
+
+  return engineSuccess(
+    {
+      operations,
+      consolidatedAnnualPnl,
+      consolidatedMonthlyPnl,
+    },
+    auditTrace
+  );
 }
 
 /**
