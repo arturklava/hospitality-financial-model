@@ -12,6 +12,14 @@ import { runScenarioEngine } from '@engines/scenario/scenarioEngine';
 import type { ProjectScenario } from '@domain/types';
 import { buildHotelConfig, buildRetailConfig, buildBeachClubConfig } from '../../helpers/buildOperationConfig';
 
+const unwrapScenarioResult = (result: ReturnType<typeof runScenarioEngine>) => {
+  if (!result.ok) {
+    throw new Error(result.error.message);
+  }
+
+  return result.data;
+};
+
 describe('Sponsor Logic Tests', () => {
   /**
    * Creates a mock AnnualPnl with specified revenue.
@@ -179,7 +187,7 @@ describe('Sponsor Logic Tests', () => {
       };
 
       // Run scenario engine with one operation
-      let result = runScenarioEngine(scenario);
+      let result = unwrapScenarioResult(runScenarioEngine(scenario));
       const initialRevenue = result.consolidatedAnnualPnl[0]?.revenueTotal ?? 0;
 
       // Add a retail operation with fixed lease
@@ -194,7 +202,7 @@ describe('Sponsor Logic Tests', () => {
       });
 
       scenario = addOperation(scenario, retail1);
-      result = runScenarioEngine(scenario);
+      result = unwrapScenarioResult(runScenarioEngine(scenario));
 
       // Verify we now have 2 operations
       expect(result.operations.length).toBe(2);
@@ -250,13 +258,13 @@ describe('Sponsor Logic Tests', () => {
       };
 
       // Run scenario engine with both operations
-      let result = runScenarioEngine(scenario);
+      let result = unwrapScenarioResult(runScenarioEngine(scenario));
       const initialRevenue = result.consolidatedAnnualPnl[0]?.revenueTotal ?? 0;
       expect(result.operations.length).toBe(2);
 
       // Remove retail operation
       const updatedScenario = removeOperation(scenario, 'retail-1');
-      result = runScenarioEngine(updatedScenario);
+      result = unwrapScenarioResult(runScenarioEngine(updatedScenario));
 
       // Verify we now have 1 operation
       expect(result.operations.length).toBe(1);
@@ -297,7 +305,7 @@ describe('Sponsor Logic Tests', () => {
         operations: [hotel1, hotel2],
       };
 
-      const result = runScenarioEngine(scenario);
+      const result = unwrapScenarioResult(runScenarioEngine(scenario));
 
       // Both operations should be calculated (for asset-level analysis)
       expect(result.operations.length).toBe(2);

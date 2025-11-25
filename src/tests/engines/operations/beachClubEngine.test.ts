@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { runBeachClubEngine } from '@engines/operations/beachClubEngine';
+import { DAYS_PER_MONTH, MONTHS_PER_YEAR } from '@engines/operations/utils';
 import type { BeachClubConfig } from '@domain/types';
 
 describe('Beach Club Engine', () => {
@@ -89,6 +90,33 @@ describe('Beach Club Engine', () => {
       expect(result.annualPnl[0].yearIndex).toBe(0);
       expect(result.annualPnl[1].yearIndex).toBe(1);
       expect(result.annualPnl[2].yearIndex).toBe(2);
+    });
+
+    it('should keep monthly-to-annual totals aligned with membership smoothing', () => {
+      const config = createTestConfig({
+        utilizationByMonth: Array(12).fill(0.5),
+        memberships: 240,
+        avgMembershipFee: 1200,
+        dailyPasses: 150,
+        avgDailyPassPrice: 60,
+      });
+      const result = runBeachClubEngine(config);
+
+      const passesPerMonth = config.dailyPasses * 0.5 * DAYS_PER_MONTH;
+      const primaryRevenue = passesPerMonth * config.avgDailyPassPrice
+        + (config.memberships * config.avgMembershipFee) / MONTHS_PER_YEAR;
+      const remainingPct = 1 - config.foodRevenuePctOfTotal - config.beverageRevenuePctOfTotal - config.otherRevenuePctOfTotal;
+      const expectedMonthlyRevenue = remainingPct > 0 ? primaryRevenue / remainingPct : primaryRevenue;
+      const expectedAnnualRevenue = expectedMonthlyRevenue * MONTHS_PER_YEAR;
+
+      const summedMonthly = result.monthlyPnl.reduce(
+        (sum, month) => sum + month.roomRevenue + month.foodRevenue + month.beverageRevenue + month.otherRevenue,
+        0,
+      );
+
+      expect(result.monthlyPnl).toHaveLength(MONTHS_PER_YEAR);
+      expect(result.annualPnl[0].revenueTotal).toBeCloseTo(expectedAnnualRevenue, 2);
+      expect(result.annualPnl[0].revenueTotal).toBeCloseTo(summedMonthly, 6);
     });
   });
 

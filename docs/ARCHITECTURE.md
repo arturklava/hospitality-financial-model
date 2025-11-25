@@ -60,6 +60,13 @@ The UI surfaces pipeline outputs with explicit units and perspectives so CFO/FP&
 - **Enterprise Value / Equity Value (unlevered, USD):** Valuation outputs from the project engine prior to financing adjustments.
 - **Debt KPIs (levered):** Average DSCR (NOI / total debt service) and Max LTV (peak debt balance / project cost), both pulled from the aggregate debt schedule.
 - **Waterfall KPIs (levered):** Owner CF (levered distributable cash flow fed into the waterfall), partner IRR (% of partner cash flows), and partner MOIC (x, partner distributions divided by contributions) reflecting post-promote sharing.
+### Pipeline contracts (sanity checklist)
+
+To prevent cross-engine drift, the pipeline enforces these light-weight contracts:
+
+- Scenario → Project: `consolidatedAnnualPnl.length` must equal `scenario.horizonYears`, with `yearIndex` values 0..N-1. `consolidatedMonthlyPnl` must include `horizonYears * 12` entries.
+- Project → Capital: `unleveredFcf.length` must match the consolidated P&L year count and cover the same year indexes.
+- Capital → Waterfall: `leveredFcfByYear.length` must equal the P&L/FCF year count; `ownerLeveredCashFlows.length` must be year count + 1 (Year 0 + projection years).
 
 ---
 
@@ -172,6 +179,11 @@ All types defined in `src/domain/types.ts`.
   - OPEX: `payrollPct`, `utilitiesPct`, `marketingPct`, `maintenanceOpexPct`, `otherOpexPct` (as % of total revenue)
   - `maintenanceCapexPct`: as % of total revenue
   - **Note**: No distinction between independent living, assisted living, memory care; all units treated uniformly
+
+### Operation input validation
+
+- **Monthly driver arrays**: `occupancyByMonth`, `utilizationByMonth`, and `turnoverByMonth` must contain exactly 12 monthly values. Occupancy/utilization arrays must stay within the 0–1 interval.
+- **Percentages**: All percentage fields across operations (revenue mix, COGS, OPEX, capex, commissions) must remain within 0–1. Domain validation enforces these bounds in addition to Zod schemas.
 
 ### Financial Statements
 
@@ -480,6 +492,12 @@ To keep code maintainable and predictable, v0.4 engines for new operations SHOUL
    - Primary revenue: `primaryRevenue = volume × avgTicket` or `primaryRevenue = sqm × occupancy × avgRentPerSqm`
    - Secondary revenue: calculated as % of total revenue (for F&B) or separate revenue streams (for retail/flex)
    - Example: RESTAURANT uses `covers × turnover × avgCheck`, RETAIL uses `sqm × occupancy × avgRentPerSqm`
+
+**Aggregation conventions (seasonality + periodization):**
+- All operation engines use a shared helper `aggregateAnnualPnl` (`src/engines/operations/utils.ts`) to roll 12 monthly P&Ls into annual statements with consistent rounding and expense grouping.
+- Day-count assumption: **30-day months × 12 months/year** for all operational revenue/volume math (e.g., occupied rooms = keys × occupancy × 30).
+- Membership and other annualized fees are **smoothed evenly across 12 months** using the same `MONTHS_PER_YEAR` constant to keep monthly and annual totals in sync.
+- When calculating department-level adjustments (e.g., hotel/villa commissions), pass adjustments into the aggregation helper so annual COGS matches the monthly logic.
 
 **Implementation Guidance for FINANCE_ENGINE_AGENT**:
 - Identify which pattern the new operation follows (lodging-like or volume/ticket-like)

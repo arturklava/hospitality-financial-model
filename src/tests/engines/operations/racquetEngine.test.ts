@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { runRacquetEngine } from '@engines/operations/racquetEngine';
+import { DAYS_PER_MONTH, MONTHS_PER_YEAR } from '@engines/operations/utils';
 import type { RacquetConfig } from '@domain/types';
 
 describe('Racquet Engine', () => {
@@ -71,6 +72,33 @@ describe('Racquet Engine', () => {
 
       expect(result.monthlyPnl.length).toBe(36);
       expect(result.annualPnl.length).toBe(3);
+    });
+
+    it('should reconcile annual totals to 30-day utilization math including memberships', () => {
+      const config = createTestConfig({
+        utilizationByMonth: Array(12).fill(0.55),
+        memberships: 120,
+        avgMembershipFee: 1500,
+        courts: 6,
+        avgCourtRate: 50,
+      });
+      const result = runRacquetEngine(config);
+
+      const courtHoursPerMonth = config.courts * 0.55 * config.hoursPerDay * DAYS_PER_MONTH;
+      const primaryRevenue = courtHoursPerMonth * config.avgCourtRate
+        + (config.memberships * config.avgMembershipFee) / MONTHS_PER_YEAR;
+      const remainingPct = 1 - config.foodRevenuePctOfTotal - config.beverageRevenuePctOfTotal - config.otherRevenuePctOfTotal;
+      const expectedMonthlyRevenue = remainingPct > 0 ? primaryRevenue / remainingPct : primaryRevenue;
+      const expectedAnnualRevenue = expectedMonthlyRevenue * MONTHS_PER_YEAR;
+
+      const monthlySum = result.monthlyPnl.reduce(
+        (sum, month) => sum + month.roomRevenue + month.foodRevenue + month.beverageRevenue + month.otherRevenue,
+        0,
+      );
+
+      expect(result.monthlyPnl).toHaveLength(MONTHS_PER_YEAR);
+      expect(result.annualPnl[0].revenueTotal).toBeCloseTo(expectedAnnualRevenue, 2);
+      expect(result.annualPnl[0].revenueTotal).toBeCloseTo(monthlySum, 6);
     });
   });
 

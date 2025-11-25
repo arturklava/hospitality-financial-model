@@ -1,9 +1,13 @@
 /**
  * Operations engine utilities (v3.5: Operational Logic).
- * 
+ *
  * Provides shared utilities for operation engines including seasonality adjustment
  * and operational expense calculations.
  */
+import type { AnnualPnl, MonthlyPnl } from '@domain/types';
+
+export const MONTHS_PER_YEAR = 12;
+export const DAYS_PER_MONTH = 30;
 
 /**
  * Default seasonality curve (flat, no seasonality).
@@ -175,5 +179,65 @@ export function applyRampUp(
   factor = Math.max(0, Math.min(1, factor));
 
   return value * factor;
+}
+
+/**
+ * Helper to sum all revenue components for a monthly P&L entry.
+ */
+function sumMonthlyRevenue(month: MonthlyPnl): number {
+  return month.roomRevenue + month.foodRevenue + month.beverageRevenue + month.otherRevenue;
+}
+
+type AggregationOptions = {
+  /** Optional per-month adjustment to COGS (e.g., commissions calculated on room revenue). */
+  cogsAdjustmentPerMonth?: (month: MonthlyPnl) => number;
+};
+
+/**
+ * Aggregates monthly P&L entries into annual P&L using consistent 12-month grouping.
+ *
+ * Ensures all operation engines share the same roll-up convention and rounding behavior.
+ */
+export function aggregateAnnualPnl(
+  monthlyPnl: MonthlyPnl[],
+  horizonYears: number,
+  operationId: string,
+  options: AggregationOptions = {}
+): AnnualPnl[] {
+  const annualPnl: AnnualPnl[] = [];
+
+  for (let yearIndex = 0; yearIndex < horizonYears; yearIndex++) {
+    const yearMonths = monthlyPnl.filter((m) => m.yearIndex === yearIndex);
+
+    const revenueTotal = yearMonths.reduce((sum, m) => sum + sumMonthlyRevenue(m), 0);
+    const baseCogsTotal = yearMonths.reduce((sum, m) => sum + m.foodCogs + m.beverageCogs, 0);
+    const cogsAdjustment = options.cogsAdjustmentPerMonth
+      ? yearMonths.reduce((sum, m) => sum + options.cogsAdjustmentPerMonth!(m), 0)
+      : 0;
+    const cogsTotal = baseCogsTotal + cogsAdjustment;
+
+    const opexTotal = yearMonths.reduce(
+      (sum, m) => sum + m.payroll + m.utilities + m.marketing + m.maintenanceOpex + m.otherOpex,
+      0
+    );
+    const ebitda = yearMonths.reduce((sum, m) => sum + m.ebitda, 0);
+    const noi = yearMonths.reduce((sum, m) => sum + m.noi, 0);
+    const maintenanceCapex = yearMonths.reduce((sum, m) => sum + m.maintenanceCapex, 0);
+    const cashFlow = yearMonths.reduce((sum, m) => sum + m.cashFlow, 0);
+
+    annualPnl.push({
+      yearIndex,
+      operationId,
+      revenueTotal,
+      cogsTotal,
+      opexTotal,
+      ebitda,
+      noi,
+      maintenanceCapex,
+      cashFlow,
+    });
+  }
+
+  return annualPnl;
 }
 
