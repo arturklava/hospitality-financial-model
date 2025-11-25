@@ -1,9 +1,16 @@
 {
-  "status": "stable",
+  "status": "failing",
   "version": "v1.1.2",
-  "checksPassed": 805,
-  "totalTests": 805,
-  "passing": 805,
+  "checksPassed": 0,
+  "totalTests": 0,
+  "passing": 0,
   "failing": 0,
-  "lastCheck": "2025-11-25T14:43:55.658Z"
+  "lastCheck": "2025-11-25T16:34:33.226Z",
+  "testRunFailed": true,
+  "checks": {
+    "vitest": {
+      "status": "fail",
+      "command": "npm test -- --run"
+    }
+  }
 }

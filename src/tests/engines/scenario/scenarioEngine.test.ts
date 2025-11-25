@@ -703,5 +703,36 @@ describe('Scenario Engine', () => {
       }
     });
   });
+
+  describe('Validation guardrails', () => {
+    it('returns a structured failure when an operation fails driver validation', () => {
+      const invalidHotel = createHotelConfig({
+        id: 'hotel-invalid-drivers',
+        name: 'Broken Hotel',
+        occupancyByMonth: [1.2, ...Array(11).fill(0.8)],
+        avgDailyRate: 0,
+      });
+
+      const scenario: ProjectScenario = {
+        id: 'validation-scenario-1',
+        name: 'Validation Scenario',
+        startYear: 2026,
+        horizonYears: 1,
+        operations: [invalidHotel],
+      };
+
+      const result = runScenarioEngine(scenario);
+
+      expect(result.ok).toBe(false);
+
+      if (result.ok) {
+        throw new Error('Expected driver validation failure but scenario engine succeeded');
+      }
+
+      expect(result.error?.code).toBe('SCENARIO_OPERATION_FAILURE');
+      expect(result.error?.issues?.[0].path).toBe('operation.drivers');
+      expect(result.auditTrace.some(trace => trace.field === 'scenario_operation_failure')).toBe(true);
+    });
+  });
 });
 

@@ -96,6 +96,14 @@ You MUST respect the following separation:
 
 ---
 
+## 3.5 Testing / Health checklist
+
+- ✅ Run `npm test -- --run` to execute all Vitest suites, including validation and pipeline guards.
+- ✅ Run `node scripts/generate-health.js` to refresh `public/health.json`; the script now fails fast if tests fail and records the Vitest command under `checks`.
+- 📝 Inspect the generated `public/health.json` and attach it (or its summary) to build artifacts when relevant.
+
+---
+
 ## 4. Typical Workflows
 
 ### 4.1 Fixing a Bug in Domain/Engines
