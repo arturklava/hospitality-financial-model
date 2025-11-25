@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { runHotelEngine } from '@engines/operations/hotelEngine';
+import { DAYS_PER_MONTH, MONTHS_PER_YEAR } from '@engines/operations/utils';
 import type { HotelConfig } from '@domain/types';
 
 describe('Hotel Engine', () => {
@@ -87,6 +88,30 @@ describe('Hotel Engine', () => {
       // Sum monthly cash flow
       const monthlyCashFlowSum = yearMonths.reduce((sum, m) => sum + m.cashFlow, 0);
       expect(annual.cashFlow).toBeCloseTo(monthlyCashFlowSum, 2);
+    });
+
+    it('should reconcile annual revenue to monthly assumptions using 30-day months', () => {
+      const config = createTestConfig({
+        occupancyByMonth: Array(12).fill(0.65),
+        avgDailyRate: 180,
+        foodRevenuePctOfRooms: 0.25,
+        beverageRevenuePctOfRooms: 0.1,
+        otherRevenuePctOfRooms: 0.05,
+      });
+      const result = runHotelEngine(config);
+
+      const expectedMonthlyRoomRevenue = config.keys * 0.65 * DAYS_PER_MONTH * config.avgDailyRate;
+      const expectedMonthlyTotalRevenue = expectedMonthlyRoomRevenue
+        * (1 + config.foodRevenuePctOfRooms + config.beverageRevenuePctOfRooms + config.otherRevenuePctOfRooms);
+      const expectedAnnualRevenue = expectedMonthlyTotalRevenue * MONTHS_PER_YEAR;
+
+      expect(result.monthlyPnl).toHaveLength(MONTHS_PER_YEAR);
+      expect(result.annualPnl[0].revenueTotal).toBeCloseTo(expectedAnnualRevenue, 2);
+      const summedMonthly = result.monthlyPnl.reduce(
+        (sum, month) => sum + month.roomRevenue + month.foodRevenue + month.beverageRevenue + month.otherRevenue,
+        0,
+      );
+      expect(result.annualPnl[0].revenueTotal).toBeCloseTo(summedMonthly, 6);
     });
 
     it('should calculate room revenue correctly', () => {
