@@ -178,126 +178,178 @@ export interface ValidationResult {
 export function validateOperationDrivers(op: OperationConfig): ValidationResult {
   const errors: string[] = [];
 
+  const validatePercentageFields = (fields: Array<{ name: string; value: number | undefined }>) => {
+    fields.forEach(({ name, value }) => {
+      if (value === undefined) return;
+      if (typeof value !== 'number' || value < 0 || value > 1) {
+        errors.push(`${name} must be between 0 and 1, got ${String(value)}`);
+      }
+    });
+  };
+
+  const validateMonthlyArray = (values: number[] | undefined, label: string, bounds?: { min: number; max: number }) => {
+    if (!Array.isArray(values)) {
+      errors.push(`${label} must be an array of 12 monthly values`);
+      return;
+    }
+
+    if (values.length !== 12) {
+      errors.push(`${label} must contain 12 monthly values, got ${values.length}`);
+    }
+
+    values.forEach((value, index) => {
+      if (typeof value !== 'number' || Number.isNaN(value)) {
+        errors.push(`${label} month ${index + 1} must be a number, got ${String(value)}`);
+        return;
+      }
+
+      if (bounds) {
+        if (value < bounds.min || value > bounds.max) {
+          errors.push(`${label} month ${index + 1} must be between ${bounds.min} and ${bounds.max}, got ${value}`);
+        }
+      }
+    });
+  };
+
+  const validatePositiveNumber = (value: number | undefined, label: string) => {
+    if (typeof value !== 'number' || value <= 0) {
+      errors.push(`${label} must be greater than 0, got ${String(value)}`);
+    }
+  };
+
   // Check operation type and validate accordingly
   switch (op.operationType) {
     case 'HOTEL': {
-      // Validate occupancy (0-1)
-      if (op.occupancyByMonth && Array.isArray(op.occupancyByMonth)) {
-        for (let i = 0; i < op.occupancyByMonth.length; i++) {
-          const occupancy = op.occupancyByMonth[i];
-          if (typeof occupancy !== 'number' || occupancy < 0 || occupancy > 1) {
-            errors.push(`Occupancy month ${i + 1} must be between 0 and 1, got ${occupancy}`);
-          }
-        }
-      }
-
-      // Validate average daily rate (> 0)
-      if (typeof op.avgDailyRate !== 'number' || op.avgDailyRate <= 0) {
-        errors.push(`Average daily rate must be greater than 0, got ${op.avgDailyRate}`);
-      }
+      validateMonthlyArray(op.occupancyByMonth, 'occupancyByMonth', { min: 0, max: 1 });
+      validatePositiveNumber(op.avgDailyRate, 'Average daily rate');
+      validatePercentageFields([
+        { name: 'foodRevenuePctOfRooms', value: op.foodRevenuePctOfRooms },
+        { name: 'beverageRevenuePctOfRooms', value: op.beverageRevenuePctOfRooms },
+        { name: 'otherRevenuePctOfRooms', value: op.otherRevenuePctOfRooms },
+        { name: 'foodCogsPct', value: op.foodCogsPct },
+        { name: 'beverageCogsPct', value: op.beverageCogsPct },
+        { name: 'commissionsPct', value: op.commissionsPct },
+        { name: 'payrollPct', value: op.payrollPct },
+        { name: 'utilitiesPct', value: op.utilitiesPct },
+        { name: 'marketingPct', value: op.marketingPct },
+        { name: 'maintenanceOpexPct', value: op.maintenanceOpexPct },
+        { name: 'otherOpexPct', value: op.otherOpexPct },
+        { name: 'maintenanceCapexPct', value: op.maintenanceCapexPct },
+      ]);
       break;
     }
 
     case 'VILLAS': {
-      // Validate occupancy (0-1)
-      if (op.occupancyByMonth && Array.isArray(op.occupancyByMonth)) {
-        for (let i = 0; i < op.occupancyByMonth.length; i++) {
-          const occupancy = op.occupancyByMonth[i];
-          if (typeof occupancy !== 'number' || occupancy < 0 || occupancy > 1) {
-            errors.push(`Occupancy month ${i + 1} must be between 0 and 1, got ${occupancy}`);
-          }
-        }
-      }
-
-      // Validate average nightly rate (> 0)
-      if (typeof op.avgNightlyRate !== 'number' || op.avgNightlyRate <= 0) {
-        errors.push(`Average nightly rate must be greater than 0, got ${op.avgNightlyRate}`);
-      }
+      validateMonthlyArray(op.occupancyByMonth, 'occupancyByMonth', { min: 0, max: 1 });
+      validatePositiveNumber(op.avgNightlyRate, 'Average nightly rate');
+      validatePercentageFields([
+        { name: 'foodRevenuePctOfRental', value: op.foodRevenuePctOfRental },
+        { name: 'beverageRevenuePctOfRental', value: op.beverageRevenuePctOfRental },
+        { name: 'otherRevenuePctOfRental', value: op.otherRevenuePctOfRental },
+        { name: 'foodCogsPct', value: op.foodCogsPct },
+        { name: 'beverageCogsPct', value: op.beverageCogsPct },
+        { name: 'commissionsPct', value: op.commissionsPct },
+        { name: 'payrollPct', value: op.payrollPct },
+        { name: 'utilitiesPct', value: op.utilitiesPct },
+        { name: 'marketingPct', value: op.marketingPct },
+        { name: 'maintenanceOpexPct', value: op.maintenanceOpexPct },
+        { name: 'otherOpexPct', value: op.otherOpexPct },
+        { name: 'maintenanceCapexPct', value: op.maintenanceCapexPct },
+      ]);
       break;
     }
 
     case 'RESTAURANT': {
-      // Validate turnover (can be > 1 for restaurants)
-      // No specific validation needed beyond type check
-
-      // Validate average check (> 0)
-      if (typeof op.avgCheck !== 'number' || op.avgCheck <= 0) {
-        errors.push(`Average check must be greater than 0, got ${op.avgCheck}`);
-      }
+      validateMonthlyArray(op.turnoverByMonth, 'turnoverByMonth');
+      validatePositiveNumber(op.avgCheck, 'Average check');
+      validatePercentageFields([
+        { name: 'foodRevenuePctOfTotal', value: op.foodRevenuePctOfTotal },
+        { name: 'beverageRevenuePctOfTotal', value: op.beverageRevenuePctOfTotal },
+        { name: 'otherRevenuePctOfTotal', value: op.otherRevenuePctOfTotal },
+        { name: 'foodCogsPct', value: op.foodCogsPct },
+        { name: 'beverageCogsPct', value: op.beverageCogsPct },
+        { name: 'payrollPct', value: op.payrollPct },
+        { name: 'utilitiesPct', value: op.utilitiesPct },
+        { name: 'marketingPct', value: op.marketingPct },
+        { name: 'maintenanceOpexPct', value: op.maintenanceOpexPct },
+        { name: 'otherOpexPct', value: op.otherOpexPct },
+        { name: 'maintenanceCapexPct', value: op.maintenanceCapexPct },
+      ]);
       break;
     }
 
     case 'RETAIL':
     case 'FLEX': {
-      // Validate occupancy (0-1)
-      if (op.occupancyByMonth && Array.isArray(op.occupancyByMonth)) {
-        for (let i = 0; i < op.occupancyByMonth.length; i++) {
-          const occupancy = op.occupancyByMonth[i];
-          if (typeof occupancy !== 'number' || occupancy < 0 || occupancy > 1) {
-            errors.push(`Occupancy month ${i + 1} must be between 0 and 1, got ${occupancy}`);
-          }
-        }
-      }
-
-      // Validate average rent per sqm (> 0)
-      if (typeof op.avgRentPerSqm !== 'number' || op.avgRentPerSqm <= 0) {
-        errors.push(`Average rent per sqm must be greater than 0, got ${op.avgRentPerSqm}`);
-      }
+      validateMonthlyArray(op.occupancyByMonth, 'occupancyByMonth', { min: 0, max: 1 });
+      validatePositiveNumber(op.avgRentPerSqm, 'Average rent per sqm');
+      validatePercentageFields([
+        { name: 'rentalRevenuePctOfTotal', value: op.rentalRevenuePctOfTotal },
+        { name: 'otherRevenuePctOfTotal', value: op.otherRevenuePctOfTotal },
+        { name: 'payrollPct', value: op.payrollPct },
+        { name: 'utilitiesPct', value: op.utilitiesPct },
+        { name: 'marketingPct', value: op.marketingPct },
+        { name: 'maintenanceOpexPct', value: op.maintenanceOpexPct },
+        { name: 'otherOpexPct', value: op.otherOpexPct },
+        { name: 'maintenanceCapexPct', value: op.maintenanceCapexPct },
+      ]);
       break;
     }
 
     case 'BEACH_CLUB':
     case 'WELLNESS': {
-      // Validate utilization (0-1) for daily passes
-      if (op.utilizationByMonth && Array.isArray(op.utilizationByMonth)) {
-        for (let i = 0; i < op.utilizationByMonth.length; i++) {
-          const utilization = op.utilizationByMonth[i];
-          if (typeof utilization !== 'number' || utilization < 0 || utilization > 1) {
-            errors.push(`Utilization month ${i + 1} must be between 0 and 1, got ${utilization}`);
-          }
-        }
-      }
-
-      // Validate average daily pass price (> 0)
-      if (typeof op.avgDailyPassPrice !== 'number' || op.avgDailyPassPrice <= 0) {
-        errors.push(`Average daily pass price must be greater than 0, got ${op.avgDailyPassPrice}`);
-      }
+      validateMonthlyArray(op.utilizationByMonth, 'utilizationByMonth', { min: 0, max: 1 });
+      validatePositiveNumber(op.avgDailyPassPrice, 'Average daily pass price');
+      validatePercentageFields([
+        { name: 'foodRevenuePctOfTotal', value: op.foodRevenuePctOfTotal },
+        { name: 'beverageRevenuePctOfTotal', value: op.beverageRevenuePctOfTotal },
+        { name: 'otherRevenuePctOfTotal', value: op.otherRevenuePctOfTotal },
+        { name: 'foodCogsPct', value: op.foodCogsPct },
+        { name: 'beverageCogsPct', value: op.beverageCogsPct },
+        { name: 'payrollPct', value: op.payrollPct },
+        { name: 'utilitiesPct', value: op.utilitiesPct },
+        { name: 'marketingPct', value: op.marketingPct },
+        { name: 'maintenanceOpexPct', value: op.maintenanceOpexPct },
+        { name: 'otherOpexPct', value: op.otherOpexPct },
+        { name: 'maintenanceCapexPct', value: op.maintenanceCapexPct },
+      ]);
       break;
     }
 
     case 'RACQUET': {
-      // Validate utilization (0-1)
-      if (op.utilizationByMonth && Array.isArray(op.utilizationByMonth)) {
-        for (let i = 0; i < op.utilizationByMonth.length; i++) {
-          const utilization = op.utilizationByMonth[i];
-          if (typeof utilization !== 'number' || utilization < 0 || utilization > 1) {
-            errors.push(`Utilization month ${i + 1} must be between 0 and 1, got ${utilization}`);
-          }
-        }
-      }
-
-      // Validate average court rate (> 0)
-      if (typeof op.avgCourtRate !== 'number' || op.avgCourtRate <= 0) {
-        errors.push(`Average court rate must be greater than 0, got ${op.avgCourtRate}`);
-      }
+      validateMonthlyArray(op.utilizationByMonth, 'utilizationByMonth', { min: 0, max: 1 });
+      validatePositiveNumber(op.avgCourtRate, 'Average court rate');
+      validatePercentageFields([
+        { name: 'foodRevenuePctOfTotal', value: op.foodRevenuePctOfTotal },
+        { name: 'beverageRevenuePctOfTotal', value: op.beverageRevenuePctOfTotal },
+        { name: 'otherRevenuePctOfTotal', value: op.otherRevenuePctOfTotal },
+        { name: 'foodCogsPct', value: op.foodCogsPct },
+        { name: 'beverageCogsPct', value: op.beverageCogsPct },
+        { name: 'payrollPct', value: op.payrollPct },
+        { name: 'utilitiesPct', value: op.utilitiesPct },
+        { name: 'marketingPct', value: op.marketingPct },
+        { name: 'maintenanceOpexPct', value: op.maintenanceOpexPct },
+        { name: 'otherOpexPct', value: op.otherOpexPct },
+        { name: 'maintenanceCapexPct', value: op.maintenanceCapexPct },
+      ]);
       break;
     }
 
     case 'SENIOR_LIVING': {
-      // Validate occupancy (0-1)
-      if (op.occupancyByMonth && Array.isArray(op.occupancyByMonth)) {
-        for (let i = 0; i < op.occupancyByMonth.length; i++) {
-          const occupancy = op.occupancyByMonth[i];
-          if (typeof occupancy !== 'number' || occupancy < 0 || occupancy > 1) {
-            errors.push(`Occupancy month ${i + 1} must be between 0 and 1, got ${occupancy}`);
-          }
-        }
-      }
-
-      // Validate average monthly rate (> 0)
-      if (typeof op.avgMonthlyRate !== 'number' || op.avgMonthlyRate <= 0) {
-        errors.push(`Average monthly rate must be greater than 0, got ${op.avgMonthlyRate}`);
-      }
+      validateMonthlyArray(op.occupancyByMonth, 'occupancyByMonth', { min: 0, max: 1 });
+      validatePositiveNumber(op.avgMonthlyRate, 'Average monthly rate');
+      validatePercentageFields([
+        { name: 'careRevenuePctOfRental', value: op.careRevenuePctOfRental },
+        { name: 'foodRevenuePctOfRental', value: op.foodRevenuePctOfRental },
+        { name: 'otherRevenuePctOfRental', value: op.otherRevenuePctOfRental },
+        { name: 'foodCogsPct', value: op.foodCogsPct },
+        { name: 'careCogsPct', value: op.careCogsPct },
+        { name: 'payrollPct', value: op.payrollPct },
+        { name: 'utilitiesPct', value: op.utilitiesPct },
+        { name: 'marketingPct', value: op.marketingPct },
+        { name: 'maintenanceOpexPct', value: op.maintenanceOpexPct },
+        { name: 'otherOpexPct', value: op.otherOpexPct },
+        { name: 'maintenanceCapexPct', value: op.maintenanceCapexPct },
+      ]);
       break;
     }
   }
