@@ -6,25 +6,10 @@
 
 import type { WaterfallResult } from '../../domain/types';
 import { formatCurrency } from '../../utils/formatters';
+import { formatMultiple, formatPercentValue } from '../../utils/kpiDisplay';
 
 interface WaterfallSummaryProps {
   waterfall: WaterfallResult;
-}
-
-/**
- * Format percentage value.
- */
-function formatPercent(value: number | null): string {
-  if (value === null || !Number.isFinite(value)) return 'N/A';
-  return `${(value * 100).toFixed(1)}%`;
-}
-
-/**
- * Format multiple value.
- */
-function formatMultiple(value: number | null): string {
-  if (value === null || !Number.isFinite(value)) return 'N/A';
-  return `${value.toFixed(2)}x`;
 }
 
 export function WaterfallSummary({ waterfall }: WaterfallSummaryProps) {
@@ -59,6 +44,9 @@ export function WaterfallSummary({ waterfall }: WaterfallSummaryProps) {
       }}>
         Equity Waterfall Summary
       </h3>
+      <p style={{ marginTop: '-0.5rem', color: 'var(--text-secondary, #64748b)' }}>
+        Partner metrics are levered cash flows after the promote; currency values are in project dollars.
+      </p>
 
       <div style={{
         display: 'grid',
@@ -85,7 +73,7 @@ export function WaterfallSummary({ waterfall }: WaterfallSummaryProps) {
                   color: 'var(--text-secondary, #64748b)',
                   marginBottom: '0.25rem',
                 }}>
-                  IRR
+                  IRR (levered)
                 </div>
                 <div style={{
                   fontSize: '1.5rem',
@@ -93,7 +81,7 @@ export function WaterfallSummary({ waterfall }: WaterfallSummaryProps) {
                   color: 'var(--text-primary, #1e293b)',
                   fontVariantNumeric: 'tabular-nums',
                 }}>
-                  {formatPercent(lpPartner.irr)}
+                  {formatPercentValue(lpPartner.irr, 1)}
                 </div>
               </div>
               <div>
@@ -102,7 +90,7 @@ export function WaterfallSummary({ waterfall }: WaterfallSummaryProps) {
                   color: 'var(--text-secondary, #64748b)',
                   marginBottom: '0.25rem',
                 }}>
-                  MOIC
+                  MOIC (x)
                 </div>
                 <div style={{
                   fontSize: '1.5rem',
@@ -137,7 +125,7 @@ export function WaterfallSummary({ waterfall }: WaterfallSummaryProps) {
                   color: 'var(--text-secondary, #64748b)',
                   marginBottom: '0.25rem',
                 }}>
-                  IRR
+                  IRR (levered)
                 </div>
                 <div style={{
                   fontSize: '1.5rem',
@@ -145,7 +133,7 @@ export function WaterfallSummary({ waterfall }: WaterfallSummaryProps) {
                   color: 'var(--text-primary, #1e293b)',
                   fontVariantNumeric: 'tabular-nums',
                 }}>
-                  {formatPercent(gpPartner.irr)}
+                  {formatPercentValue(gpPartner.irr, 1)}
                 </div>
               </div>
               <div>
@@ -154,7 +142,7 @@ export function WaterfallSummary({ waterfall }: WaterfallSummaryProps) {
                   color: 'var(--text-secondary, #64748b)',
                   marginBottom: '0.25rem',
                 }}>
-                  MOIC
+                  MOIC (x)
                 </div>
                 <div style={{
                   fontSize: '1.5rem',

@@ -3,41 +3,11 @@ import { useAudit } from '../ui/contexts/AuditContext';
 import { AuditTooltip, type AuditInfo } from './audit/AuditTooltip';
 import { DataTable } from './ui/DataTable';
 import type { WaterfallResult } from '@domain/types';
+import { formatCurrency } from '../utils/formatters';
+import { formatMultiple, formatPercentValue } from '../utils/kpiDisplay';
 
 interface WaterfallTableProps {
   waterfall: WaterfallResult;
-}
-
-/**
- * Formats a number as currency.
- */
-function formatCurrency(value: number): string {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(value);
-}
-
-/**
- * Formats a number as a percentage.
- */
-function formatPercent(value: number | null): string {
-  if (value === null) {
-    return 'N/A';
-  }
-  return `${(value * 100).toFixed(2)}%`;
-}
-
-/**
- * Formats a number with 2 decimal places.
- */
-function formatNumber(value: number | null): string {
-  if (value === null) {
-    return 'N/A';
-  }
-  return value.toFixed(2);
 }
 
 export function WaterfallTable({ waterfall }: WaterfallTableProps) {
@@ -85,6 +55,9 @@ export function WaterfallTable({ waterfall }: WaterfallTableProps) {
     <>
       <div className="waterfall-table">
         <h2 style={{ fontFamily: 'var(--font-display, "Josefin Sans", sans-serif)' }}>Equity Waterfall</h2>
+        <p style={{ marginTop: '0.25rem', color: 'var(--text-secondary, #64748b)' }}>
+          Owner cash flow and partner splits are levered distributions from the capital engine. Values shown in project currency.
+        </p>
         {hasClawback && (
           <div style={{
             marginBottom: '1rem',
@@ -101,9 +74,15 @@ export function WaterfallTable({ waterfall }: WaterfallTableProps) {
           <thead>
             <tr>
               <th className="text">Year</th>
-              <th className="numeric">Owner CF</th>
+              <th className="numeric" title="Levered distributable cash flow before partner splits">Owner CF (levered, USD)</th>
               {waterfall.partners.map((partner) => (
-                <th key={partner.partnerId} className="numeric">{partner.partnerId.toUpperCase()}</th>
+                <th
+                  key={partner.partnerId}
+                  className="numeric"
+                  title={`Distribution to ${partner.partnerId.toUpperCase()} after promotes`}
+                >
+                  {`${partner.partnerId.toUpperCase()} Distribution (USD)`}
+                </th>
               ))}
               {hasClawback && <th className="text">Clawback Adjustments</th>}
             </tr>
@@ -124,8 +103,8 @@ export function WaterfallTable({ waterfall }: WaterfallTableProps) {
                     style={auditStyle}
                     onClick={(e) => handleValueClick(
                       row.ownerCashFlow,
-                      'Owner Cash Flow',
-                      'Owner CF = Total Distributable Cash Flow',
+                      'Owner Cash Flow (levered)',
+                      'Owner CF = Levered distributable cash flow passed into waterfall',
                       [
                         { label: 'Year', value: `${row.yearIndex}` },
                         { label: 'Total Owner CF', value: formatCurrency(row.ownerCashFlow) },
@@ -146,7 +125,7 @@ export function WaterfallTable({ waterfall }: WaterfallTableProps) {
                           onClick={(e) => handleValueClick(
                             distribution,
                             `${partner.partnerId.toUpperCase()} Distribution`,
-                            'Distribution = Owner CF × Partner Distribution %',
+                            'Partner Distribution = Owner CF × promote sharing rules',
                             [
                               { label: 'Partner', value: partner.partnerId.toUpperCase() },
                               { label: 'Distribution', value: formatCurrency(distribution) },
@@ -203,8 +182,8 @@ export function WaterfallTable({ waterfall }: WaterfallTableProps) {
             <thead>
               <tr>
                 <th className="text">Partner</th>
-                <th className="numeric">IRR</th>
-                <th className="numeric">MOIC</th>
+                <th className="numeric">IRR (%)</th>
+                <th className="numeric">MOIC (x)</th>
               </tr>
             </thead>
             <tbody>
@@ -217,15 +196,15 @@ export function WaterfallTable({ waterfall }: WaterfallTableProps) {
                     onClick={(e) => handleValueClick(
                       partner.irr ?? 0,
                       `${partner.partnerId.toUpperCase()} IRR`,
-                      'IRR: NPV = 0 when discount rate = IRR',
+                      'Partner IRR (levered) calculated from that partner\'s cash flows',
                       [
                         { label: 'Partner', value: partner.partnerId.toUpperCase() },
-                        { label: 'IRR', value: formatPercent(partner.irr) },
+                        { label: 'IRR', value: formatPercentValue(partner.irr) },
                       ],
                       e
                     )}
                   >
-                    {formatPercent(partner.irr)}
+                    {formatPercentValue(partner.irr)}
                   </td>
                   <td
                     className="numeric"
@@ -233,15 +212,15 @@ export function WaterfallTable({ waterfall }: WaterfallTableProps) {
                     onClick={(e) => handleValueClick(
                       partner.moic,
                       `${partner.partnerId.toUpperCase()} MOIC`,
-                      'MOIC = Multiple on Invested Capital',
+                      'MOIC (x) = Total partner distributions / total partner contributions',
                       [
                         { label: 'Partner', value: partner.partnerId.toUpperCase() },
-                        { label: 'MOIC', value: formatNumber(partner.moic) },
+                        { label: 'MOIC', value: formatMultiple(partner.moic) },
                       ],
                       e
                     )}
                   >
-                    {formatNumber(partner.moic)}
+                    {formatMultiple(partner.moic)}
                   </td>
                 </tr>
               ))}

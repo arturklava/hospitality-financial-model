@@ -4,6 +4,16 @@ import { AuditTooltip, type AuditInfo } from './audit/AuditTooltip';
 import { InspectorDrawer } from './audit/InspectorDrawer';
 import type { InspectorData } from './audit/InspectorOverlay';
 import type { ProjectKpis, DcfValuation, DebtKpi, FullModelOutput } from '@domain/types';
+import { formatCurrency } from '../utils/formatters';
+import {
+  formatCurrencyValue,
+  formatMultiple,
+  formatNumberValue,
+  formatPercentValue,
+  formatYears,
+  KPI_TOOLTIPS,
+  summarizeDebtKpis,
+} from '../utils/kpiDisplay';
 
 interface ResultsSummaryProps {
   projectKpis: ProjectKpis;
@@ -11,38 +21,6 @@ interface ResultsSummaryProps {
   debtKpis?: DebtKpi[];
   fullOutput?: FullModelOutput; // Optional: for detailed audit info
   onNavigateToGlossary?: () => void; // Optional: callback to navigate to glossary
-}
-
-/**
- * Formats a number as currency.
- */
-function formatCurrency(value: number): string {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(value);
-}
-
-/**
- * Formats a number as a percentage.
- */
-function formatPercent(value: number | null): string {
-  if (value === null) {
-    return 'N/A';
-  }
-  return `${(value * 100).toFixed(2)}%`;
-}
-
-/**
- * Formats a number with 2 decimal places.
- */
-function formatNumber(value: number | null): string {
-  if (value === null) {
-    return 'N/A';
-  }
-  return value.toFixed(2);
 }
 
 /**
@@ -70,28 +48,26 @@ function getAuditInfo(
       };
     case 'irr':
       return {
-        value: formatPercent(projectKpis.unleveredIrr),
-        formula: 'IRR: NPV = 0 when discount rate = IRR',
+        value: formatPercentValue(projectKpis.unleveredIrr),
+        formula: 'Unlevered IRR: discount rate where NPV of unlevered CF = 0',
         inputs: [
           { label: 'Cash Flows', value: `${dcfValuation.cashFlows.length} periods` },
           { label: 'Initial Investment', value: formatCurrency(-dcfValuation.cashFlows[0]) },
         ],
       };
     case 'equityMultiple':
-      const positiveFlows = dcfValuation.cashFlows.filter(cf => cf > 0).reduce((sum, cf) => sum + cf, 0);
-      const negativeFlows = Math.abs(dcfValuation.cashFlows.filter(cf => cf < 0).reduce((sum, cf) => sum + cf, 0));
       return {
-        value: formatNumber(projectKpis.equityMultiple),
-        formula: 'Equity Multiple = Sum of Positive CFs / |Sum of Negative CFs|',
+        value: formatMultiple(projectKpis.equityMultiple),
+        formula: 'Equity Multiple = Total unlevered inflows / total unlevered outflows',
         inputs: [
-          { label: 'Sum of Positive CFs', value: formatCurrency(positiveFlows) },
-          { label: 'Sum of Negative CFs', value: formatCurrency(-negativeFlows) },
+          { label: 'Reported Multiple', value: formatMultiple(projectKpis.equityMultiple) },
+          { label: 'Cash Flow Periods', value: `${dcfValuation.cashFlows.length} periods` },
         ],
       };
     case 'payback':
       return {
-        value: projectKpis.paybackPeriod !== null ? `${formatNumber(projectKpis.paybackPeriod)} years` : 'N/A',
-        formula: 'Payback Period = Years until cumulative CFs turn positive',
+        value: formatYears(projectKpis.paybackPeriod),
+        formula: 'Payback Period = Years until cumulative unlevered CFs turn positive',
         inputs: [
           { label: 'Initial Investment', value: formatCurrency(-dcfValuation.cashFlows[0]) },
         ],
@@ -119,19 +95,19 @@ function getAuditInfo(
         return sum + (kpi.dscr !== null ? 1 : 0);
       }, 0);
       return {
-        value: formatNumber(averageDscr),
+        value: formatNumberValue(averageDscr),
         formula: 'DSCR = NOI / Debt Service',
         inputs: [
-          { label: 'Average DSCR', value: averageDscr !== null ? formatNumber(averageDscr) : 'N/A' },
+          { label: 'Average DSCR', value: formatNumberValue(averageDscr) },
           { label: 'Years with DSCR', value: `${totalDebtService} years` },
         ],
       };
     case 'ltv':
       return {
-        value: formatPercent(maxLtv),
+        value: formatPercentValue(maxLtv),
         formula: 'LTV = Debt Balance / Initial Investment',
         inputs: [
-          { label: 'Max LTV', value: maxLtv !== null ? formatPercent(maxLtv) : 'N/A' },
+          { label: 'Max LTV', value: formatPercentValue(maxLtv) },
         ],
       };
     default:
@@ -155,14 +131,7 @@ export function ResultsSummary({
   const [auditPosition, setAuditPosition] = useState<{ x: number; y: number } | undefined>(undefined);
   const [inspectorData, setInspectorData] = useState<InspectorData | null>(null);
 
-  // Calculate average DSCR and max LTV from debt KPIs
-  const validDscrs = debtKpis.map((kpi) => kpi.dscr).filter((dscr): dscr is number => dscr !== null);
-  const averageDscr = validDscrs.length > 0
-    ? validDscrs.reduce((sum, dscr) => sum + dscr, 0) / validDscrs.length
-    : null;
-
-  const validLtvs = debtKpis.map((kpi) => kpi.ltv).filter((ltv): ltv is number => ltv !== null);
-  const maxLtv = validLtvs.length > 0 ? Math.max(...validLtvs) : null;
+  const { averageDscr, maxLtv } = summarizeDebtKpis(debtKpis);
 
   const handleKpiClick = (kpiType: string, _event: React.MouseEvent) => {
     if (!isAuditMode || !dcfValuation) return;
@@ -202,7 +171,7 @@ export function ResultsSummary({
         <h2>Project Summary KPIs</h2>
         <div className="kpi-grid">
           <div className="kpi-item kpi-category-valuation">
-            <div className="kpi-label">NPV</div>
+            <div className="kpi-label" title={KPI_TOOLTIPS.npv}>NPV (unlevered, USD)</div>
             <div
               className="kpi-value"
               style={auditStyle}
@@ -212,73 +181,73 @@ export function ResultsSummary({
             </div>
           </div>
           <div className="kpi-item kpi-category-return">
-            <div className="kpi-label">Unlevered IRR</div>
+            <div className="kpi-label" title={KPI_TOOLTIPS.unleveredIrr}>Unlevered IRR (%)</div>
             <div
               className="kpi-value"
               style={auditStyle}
               onClick={(e) => handleKpiClick('irr', e)}
             >
-              {formatPercent(projectKpis.unleveredIrr)}
+              {formatPercentValue(projectKpis.unleveredIrr)}
             </div>
           </div>
           <div className="kpi-item kpi-category-return">
-            <div className="kpi-label">Equity Multiple</div>
+            <div className="kpi-label" title={KPI_TOOLTIPS.equityMultiple}>Equity Multiple (unlevered)</div>
             <div
               className="kpi-value"
               style={auditStyle}
               onClick={(e) => handleKpiClick('equityMultiple', e)}
             >
-              {formatNumber(projectKpis.equityMultiple)}
+              {formatMultiple(projectKpis.equityMultiple, 2)}
             </div>
           </div>
           <div className="kpi-item kpi-category-return">
-            <div className="kpi-label">Payback Period</div>
+            <div className="kpi-label" title={KPI_TOOLTIPS.payback}>Payback Period (unlevered)</div>
             <div
               className="kpi-value"
               style={auditStyle}
               onClick={(e) => handleKpiClick('payback', e)}
             >
-              {projectKpis.paybackPeriod !== null ? `${formatNumber(projectKpis.paybackPeriod)} years` : 'N/A'}
+              {formatYears(projectKpis.paybackPeriod)}
             </div>
           </div>
           <div className="kpi-item kpi-category-valuation">
-            <div className="kpi-label">Enterprise Value</div>
+            <div className="kpi-label" title={KPI_TOOLTIPS.enterpriseValue}>Enterprise Value (unlevered, USD)</div>
             <div
               className="kpi-value"
               style={auditStyle}
               onClick={(e) => handleKpiClick('enterpriseValue', e)}
             >
-              {dcfValuation ? formatCurrency(dcfValuation.enterpriseValue) : 'N/A'}
+              {formatCurrencyValue(dcfValuation?.enterpriseValue)}
             </div>
           </div>
           <div className="kpi-item kpi-category-valuation">
-            <div className="kpi-label">Equity Value</div>
+            <div className="kpi-label" title={KPI_TOOLTIPS.equityValue}>Equity Value (unlevered, USD)</div>
             <div
               className="kpi-value"
               style={auditStyle}
               onClick={(e) => handleKpiClick('equityValue', e)}
             >
-              {dcfValuation ? formatCurrency(dcfValuation.equityValue) : 'N/A'}
+              {formatCurrencyValue(dcfValuation?.equityValue)}
             </div>
           </div>
           <div className="kpi-item kpi-category-debt">
-            <div className="kpi-label">Average DSCR</div>
+            <div className="kpi-label" title={KPI_TOOLTIPS.averageDscr}>Average DSCR (levered)</div>
             <div
               className="kpi-value"
               style={auditStyle}
               onClick={(e) => handleKpiClick('dscr', e)}
             >
-              {formatNumber(averageDscr)}
+              {formatNumberValue(averageDscr)}
             </div>
           </div>
           <div className="kpi-item kpi-category-debt">
-            <div className="kpi-label">Max LTV</div>
+            <div className="kpi-label" title={KPI_TOOLTIPS.maxLtv}>Max LTV (levered)</div>
             <div
               className="kpi-value"
               style={auditStyle}
               onClick={(e) => handleKpiClick('ltv', e)}
             >
-              {formatPercent(maxLtv)}
+              {formatPercentValue(maxLtv, 2)}
             </div>
           </div>
         </div>

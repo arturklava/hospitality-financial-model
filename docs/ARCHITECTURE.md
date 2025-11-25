@@ -50,6 +50,17 @@ The complete data flow is a **numbered sequence**:
    - Output: Renders KPI cards and tables (Unlevered FCF, Equity Waterfall)
    - Calls `runFullModel` (from `modelPipeline.ts`) with model input configuration
 
+### UI KPI Display (Dashboard & Results)
+
+The UI surfaces pipeline outputs with explicit units and perspectives so CFO/FP&A users can distinguish unlevered vs. levered views:
+- **NPV (unlevered, USD):** Present value of unlevered free cash flows including the initial investment as Year 0 outflow.
+- **Unlevered IRR (%):** IRR on unlevered cash flows before financing.
+- **Equity Multiple (unlevered, x):** Total unlevered inflows divided by total unlevered outflows.
+- **Payback Period (unlevered, years):** Years until cumulative unlevered cash flow turns positive.
+- **Enterprise Value / Equity Value (unlevered, USD):** Valuation outputs from the project engine prior to financing adjustments.
+- **Debt KPIs (levered):** Average DSCR (NOI / total debt service) and Max LTV (peak debt balance / project cost), both pulled from the aggregate debt schedule.
+- **Waterfall KPIs (levered):** Owner CF (levered distributable cash flow fed into the waterfall), partner IRR (% of partner cash flows), and partner MOIC (x, partner distributions divided by contributions) reflecting post-promote sharing.
+
 ---
 
 ## Domain Types
