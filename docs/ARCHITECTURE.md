@@ -475,6 +475,12 @@ To keep code maintainable and predictable, v0.4 engines for new operations SHOUL
    - Secondary revenue: calculated as % of total revenue (for F&B) or separate revenue streams (for retail/flex)
    - Example: RESTAURANT uses `covers × turnover × avgCheck`, RETAIL uses `sqm × occupancy × avgRentPerSqm`
 
+**Aggregation conventions (seasonality + periodization):**
+- All operation engines use a shared helper `aggregateAnnualPnl` (`src/engines/operations/utils.ts`) to roll 12 monthly P&Ls into annual statements with consistent rounding and expense grouping.
+- Day-count assumption: **30-day months × 12 months/year** for all operational revenue/volume math (e.g., occupied rooms = keys × occupancy × 30).
+- Membership and other annualized fees are **smoothed evenly across 12 months** using the same `MONTHS_PER_YEAR` constant to keep monthly and annual totals in sync.
+- When calculating department-level adjustments (e.g., hotel/villa commissions), pass adjustments into the aggregation helper so annual COGS matches the monthly logic.
+
 **Implementation Guidance for FINANCE_ENGINE_AGENT**:
 - Identify which pattern the new operation follows (lodging-like or volume/ticket-like)
 - Reuse the monthly loop structure from existing engines
