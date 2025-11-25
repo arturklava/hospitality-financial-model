@@ -64,6 +64,31 @@ function getInitialPrincipal(tranche: DebtTrancheConfig): number {
 }
 
 /**
+ * Validates a tranche configuration and throws descriptive errors for invalid structures.
+ */
+function validateTrancheConfig(tranche: DebtTrancheConfig): void {
+  const initialPrincipal = getInitialPrincipal(tranche);
+  const amortizationType = tranche.amortizationType ?? 'mortgage';
+  const amortizationYears = tranche.amortizationYears ?? tranche.termYears;
+
+  if (initialPrincipal < 0) {
+    throw new Error(`[Capital Engine] Invalid tranche ${tranche.id}: initial principal cannot be negative.`);
+  }
+
+  if (initialPrincipal > 0 && tranche.termYears <= 0) {
+    throw new Error(`[Capital Engine] Invalid tranche ${tranche.id}: termYears must be > 0 when principal is funded.`);
+  }
+
+  if (initialPrincipal > 0 && amortizationType === 'mortgage' && amortizationYears <= 0) {
+    throw new Error(`[Capital Engine] Invalid tranche ${tranche.id}: amortizationYears must be > 0 for mortgage amortization.`);
+  }
+
+  if ((tranche.ioYears ?? 0) < 0) {
+    throw new Error(`[Capital Engine] Invalid tranche ${tranche.id}: ioYears cannot be negative.`);
+  }
+}
+
+/**
  * Computes the debt schedule for a single tranche.
  * 
  * Supports three amortization types:
@@ -408,11 +433,17 @@ function computeMonthlyTrancheSchedule(
   // Calculate monthly payment for mortgage amortization
   let monthlyPayment = 0;
   if (amortizationType === 'mortgage' && amortizationMonths > 0) {
-    // Monthly payment formula: P × [r(1+r)^n] / [(1+r)^n - 1]
-    const numerator = monthlyRate * Math.pow(1 + monthlyRate, amortizationMonths);
-    const denominator = Math.pow(1 + monthlyRate, amortizationMonths) - 1;
-    if (denominator > 0) {
-      monthlyPayment = initialPrincipal * (numerator / denominator);
+    const rateIsZero = Math.abs(monthlyRate) < 1e-12;
+    if (rateIsZero) {
+      // Avoid zero-payment / negative amortization when rates are 0
+      monthlyPayment = initialPrincipal / amortizationMonths;
+    } else {
+      // Monthly payment formula: P × [r(1+r)^n] / [(1+r)^n - 1]
+      const numerator = monthlyRate * Math.pow(1 + monthlyRate, amortizationMonths);
+      const denominator = Math.pow(1 + monthlyRate, amortizationMonths) - 1;
+      if (denominator > 0) {
+        monthlyPayment = initialPrincipal * (numerator / denominator);
+      }
     }
   }
 
@@ -693,12 +724,20 @@ export function runCapitalEngine(
   const horizonYears = unleveredFcf.length;
   const initialInvestment = capitalConfig.initialInvestment;
 
+  if (consolidatedPnl.length !== horizonYears) {
+    throw new Error(
+      `[Capital Engine] Consolidated P&L length (${consolidatedPnl.length}) must match unlevered FCF horizon (${horizonYears}).`
+    );
+  }
+
   // Build per-tranche schedules
   const trancheSchedules: TrancheSchedule[] = [];
   let totalNetProceeds = 0; // v0.6: Use net proceeds (after origination fees) instead of initial principal
   let totalOriginationFees = 0; // v0.6: Track total origination fees
 
   for (const tranche of capitalConfig.debtTranches) {
+    validateTrancheConfig(tranche);
+
     const initialPrincipal = getInitialPrincipal(tranche);
     if (initialPrincipal > 0 && tranche.termYears > 0) {
       const entries = computeTrancheSchedule(tranche, horizonYears);

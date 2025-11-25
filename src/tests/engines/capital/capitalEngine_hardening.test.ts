@@ -4,6 +4,7 @@ import type {
   ConsolidatedAnnualPnl,
   UnleveredFcf,
   CapitalStructureConfig,
+  ConsolidatedMonthlyPnl,
 } from '@domain/types';
 
 describe('Capital Engine Hardening', () => {
@@ -38,6 +39,35 @@ describe('Capital Engine Hardening', () => {
         unleveredFreeCashFlow: ufcfPerYear,
       });
     }
+    return result;
+  };
+
+  const createConsolidatedMonthlyPnl = (
+    horizonYears: number,
+    noiPerMonth: number,
+    maintenanceCapexPerMonth = 0
+  ): ConsolidatedMonthlyPnl[] => {
+    const result: ConsolidatedMonthlyPnl[] = [];
+    const totalMonths = horizonYears * 12;
+
+    for (let monthNumber = 0; monthNumber < totalMonths; monthNumber++) {
+      const yearIndex = Math.floor(monthNumber / 12);
+      const monthIndex = monthNumber % 12;
+
+      result.push({
+        yearIndex,
+        monthIndex,
+        monthNumber,
+        revenueTotal: noiPerMonth,
+        departmentalExpenses: 0,
+        gop: noiPerMonth,
+        undistributedExpenses: 0,
+        noi: noiPerMonth,
+        maintenanceCapex: maintenanceCapexPerMonth,
+        cashFlow: noiPerMonth - maintenanceCapexPerMonth,
+      });
+    }
+
     return result;
   };
 
@@ -133,6 +163,125 @@ describe('Capital Engine Hardening', () => {
       const totalAccounted = totalPrincipalPaid + finalEndingBalance;
 
       expect(Math.abs(totalAccounted - initialPrincipal)).toBeLessThan(0.01);
+    });
+
+    it('should fully repay balloon balance when amortization exceeds term', () => {
+      const horizonYears = 7;
+      const consolidatedPnl = createConsolidatedPnl(horizonYears, 20000);
+      const unleveredFcf = createUnleveredFcf(horizonYears, 18000);
+
+      const capitalConfig: CapitalStructureConfig = {
+        initialInvestment: 200000,
+        debtTranches: [
+          {
+            id: 'balloon-test',
+            initialPrincipal: 100000,
+            interestRate: 0.05,
+            termYears: 5,
+            amortizationYears: 20,
+          },
+        ],
+      };
+
+      const result = runCapitalEngine(consolidatedPnl, unleveredFcf, capitalConfig);
+      const entries = result.debtSchedule.entries;
+      const finalYear = entries[4];
+
+      expect(finalYear.principal).toBeCloseTo(finalYear.beginningBalance, 2);
+      const totalPrincipal = entries.reduce((sum, e) => sum + e.principal, 0);
+      expect(Math.abs(totalPrincipal - 100000)).toBeLessThan(0.01);
+    });
+
+    it('should throw on invalid amortization years for mortgage tranches', () => {
+      const horizonYears = 5;
+      const consolidatedPnl = createConsolidatedPnl(horizonYears, 12000);
+      const unleveredFcf = createUnleveredFcf(horizonYears, 10000);
+
+      const capitalConfig: CapitalStructureConfig = {
+        initialInvestment: 100000,
+        debtTranches: [
+          {
+            id: 'invalid-amortization',
+            initialPrincipal: 50000,
+            interestRate: 0.05,
+            termYears: 5,
+            amortizationYears: 0,
+          },
+        ],
+      };
+
+      expect(() => runCapitalEngine(consolidatedPnl, unleveredFcf, capitalConfig)).toThrow(
+        /amortizationYears must be > 0/
+      );
+    });
+  });
+
+  describe('Zero-interest and alignment checks', () => {
+    it('amortizes mortgage principal with zero interest in monthly schedule', () => {
+      const horizonYears = 1;
+      const consolidatedPnl = createConsolidatedPnl(horizonYears, 12000);
+      const unleveredFcf = createUnleveredFcf(horizonYears, 10000);
+      const consolidatedMonthlyPnl = createConsolidatedMonthlyPnl(horizonYears, 1000);
+
+      const capitalConfig: CapitalStructureConfig = {
+        initialInvestment: 50000,
+        debtTranches: [
+          {
+            id: 'zero-rate-mortgage',
+            initialPrincipal: 12000,
+            interestRate: 0,
+            termYears: 1,
+            amortizationYears: 1,
+            amortizationType: 'mortgage',
+          },
+        ],
+      };
+
+      const result = runCapitalEngine(
+        consolidatedPnl,
+        unleveredFcf,
+        capitalConfig,
+        consolidatedMonthlyPnl
+      );
+
+      expect(result.monthlyDebtSchedule).toBeDefined();
+      const aggregated = result.monthlyDebtSchedule!.aggregatedByMonth;
+
+      aggregated.forEach(entry => {
+        expect(entry.totalPrincipal).toBeGreaterThanOrEqual(0);
+        expect(Number.isFinite(entry.totalPrincipal)).toBe(true);
+      });
+
+      const totalPrincipal = aggregated.reduce((sum, e) => sum + e.totalPrincipal, 0);
+      expect(totalPrincipal).toBeCloseTo(12000, 2);
+      expect(aggregated[aggregated.length - 1].totalEndingBalance).toBeCloseTo(0, 4);
+    });
+
+    it('keeps levered cash flow aligned with unlevered inputs and debt service', () => {
+      const horizonYears = 3;
+      const consolidatedPnl = createConsolidatedPnl(horizonYears, 15000);
+      const unleveredFcf = createUnleveredFcf(horizonYears, 14000);
+
+      const capitalConfig: CapitalStructureConfig = {
+        initialInvestment: 90000,
+        debtTranches: [
+          {
+            id: 'alignment-check',
+            initialPrincipal: 30000,
+            interestRate: 0.04,
+            termYears: 3,
+            amortizationYears: 3,
+          },
+        ],
+      };
+
+      const result = runCapitalEngine(consolidatedPnl, unleveredFcf, capitalConfig);
+
+      result.leveredFcfByYear.forEach(entry => {
+        const debtService = entry.interest + entry.principal + (entry.transactionCosts ?? 0);
+        expect(entry.debtService).toBeCloseTo(debtService, 6);
+        expect(entry.leveredFreeCashFlow).toBeCloseTo(entry.unleveredFcf - entry.debtService, 6);
+      });
     });
   });
 });
