@@ -54,9 +54,9 @@ export function OperationKpiCards({ operation, modelOutput }: OperationKpiCardsP
 
     try {
       const scenarioResult = runScenarioEngine(modelOutput.scenario);
-      if (!scenarioResult?.operations) return [];
+      if (!scenarioResult.ok) return [];
 
-      const operationResult = scenarioResult.operations.find(op => op.operationId === operation.id);
+      const operationResult = scenarioResult.data.operations.find(op => op.operationId === operation.id);
       if (!operationResult?.annualPnl || operationResult.annualPnl.length === 0) return [];
 
       return operationResult.annualPnl;

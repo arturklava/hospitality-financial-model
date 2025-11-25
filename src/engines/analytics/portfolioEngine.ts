@@ -32,7 +32,21 @@ export function aggregateByOperationType(
 ): Record<OperationType, PortfolioMetrics> {
   // Re-run scenario engine to get individual operation results
   const scenarioResult = runScenarioEngine(output.scenario);
-  const { operations } = scenarioResult;
+  if (!scenarioResult.ok) {
+    return {
+      HOTEL: { revenue: 0, noi: 0, valuation: 0 },
+      VILLAS: { revenue: 0, noi: 0, valuation: 0 },
+      RESTAURANT: { revenue: 0, noi: 0, valuation: 0 },
+      BEACH_CLUB: { revenue: 0, noi: 0, valuation: 0 },
+      RACQUET: { revenue: 0, noi: 0, valuation: 0 },
+      RETAIL: { revenue: 0, noi: 0, valuation: 0 },
+      FLEX: { revenue: 0, noi: 0, valuation: 0 },
+      WELLNESS: { revenue: 0, noi: 0, valuation: 0 },
+      SENIOR_LIVING: { revenue: 0, noi: 0, valuation: 0 },
+    };
+  }
+
+  const { operations } = scenarioResult.data;
   
   // Get enterprise value from project engine
   const enterpriseValue = output.project.dcfValuation.enterpriseValue;
@@ -66,7 +80,7 @@ export function aggregateByOperationType(
   for (let i = 0; i < operations.length; i++) {
     const operation = operations[i];
     const config = output.scenario.operations[i];
-    const operationType = operation.operationType;
+    const operationType = operation.operationType as OperationType;
     
     // Sum revenue and NOI across all years (using Sponsor P&L)
     let totalRevenue = 0;
@@ -136,7 +150,11 @@ export function calculateReaasMetrics(
 ): ReaasMetrics {
   // Re-run scenario engine to get individual operation results
   const scenarioResult = runScenarioEngine(output.scenario);
-  const { operations } = scenarioResult;
+  if (!scenarioResult.ok) {
+    return { totalReaasRevenue: 0, reaasRevenueShare: 0, reaasNoi: 0 };
+  }
+
+  const { operations } = scenarioResult.data;
   
   let totalReaasRevenue = 0;
   let reaasNoi = 0;

@@ -214,24 +214,25 @@ export function runOperation(config: OperationConfig): EngineResult<OperationEng
       };
       break;
     }
-    default: {
-      return engineFailure(
-        'OPERATIONS_UNSUPPORTED_TYPE',
-        `Operation type ${String(safeConfig.operationType)} is not supported`,
-        {
-          auditTrace: [
-            {
-              field: 'operation_dispatch',
-              formula: 'Operation type switch',
-              values: { operationType: safeConfig.operationType },
-              result: 0,
-              source: 'operationsEngine',
-              operationId: safeConfig.id,
-            },
-          ],
-        }
-      );
-    }
+  }
+
+  if (!engineComputation) {
+    return engineFailure(
+      'OPERATIONS_UNSUPPORTED_TYPE',
+      `Operation type ${String(safeConfig.operationType)} is not supported`,
+      {
+        auditTrace: [
+          {
+            field: 'operation_dispatch',
+            formula: 'Operation type switch',
+            values: { operationType: safeConfig.operationType },
+            result: 0,
+            source: 'operationsEngine',
+            operationId: safeConfig.id,
+          },
+        ],
+      }
+    );
   }
 
   return engineSuccess(engineComputation, [buildOperationTrace('operation_execution', safeConfig)]);

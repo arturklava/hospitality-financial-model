@@ -41,7 +41,9 @@ function formatPercent(value: number): string {
  */
 function calculateARR(output: FullModelOutput, input: FullModelInput): number {
   const scenarioResult = runScenarioEngine(output.scenario);
-  const { operations } = scenarioResult;
+  if (!scenarioResult.ok) return 0;
+
+  const { operations } = scenarioResult.data;
   
   let arr = 0;
   
@@ -100,7 +102,9 @@ function getREaaSOperations(output: FullModelOutput, input: FullModelInput): Arr
   isREaaS: boolean;
 }> {
   const scenarioResult = runScenarioEngine(output.scenario);
-  const { operations } = scenarioResult;
+  if (!scenarioResult.ok) return [];
+
+  const { operations } = scenarioResult.data;
   
   const reaasOps: Array<{
     name: string;
@@ -150,7 +154,9 @@ function prepareReaasBarChartData(output: FullModelOutput, input: FullModelInput
   oneOff: number;
 }> {
   const scenarioResult = runScenarioEngine(output.scenario);
-  const { operations } = scenarioResult;
+  if (!scenarioResult.ok) return [];
+
+  const { operations } = scenarioResult.data;
   
   const chartData: Array<{
     year: string;

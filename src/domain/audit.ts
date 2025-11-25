@@ -32,7 +32,7 @@ export interface DetailedAuditTrace {
   /** Human-readable formula (e.g., "NOI / Debt Service") */
   formula: string;
   /** Dictionary of input values used in calculation (e.g., { noi: 500000, debtService: 400000 }) */
-  values: Record<string, number>;
+  values: Record<string, number | string>;
   /** The calculated result (e.g., 1.25) */
   result: number;
   /** Optional: Source module/engine (e.g., "capitalEngine", "scenarioEngine") */

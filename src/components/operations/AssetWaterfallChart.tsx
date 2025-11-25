@@ -38,9 +38,9 @@ function getOperationYear1Pnl(
     // Re-run scenario engine to get operation results
     // FullModelOutput.scenario is ProjectScenario (config), not ScenarioEngineResult
     const scenarioResult = runScenarioEngine(modelOutput.scenario);
-    if (!scenarioResult?.operations) return null;
+    if (!scenarioResult.ok) return null;
 
-    const operationResult = scenarioResult.operations.find(op => op.operationId === operation.id);
+    const operationResult = scenarioResult.data.operations.find(op => op.operationId === operation.id);
     if (!operationResult?.annualPnl || operationResult.annualPnl.length === 0) return null;
 
     // Use Year 1 (yearIndex 0)

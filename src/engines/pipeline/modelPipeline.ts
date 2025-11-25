@@ -12,7 +12,7 @@ import type {
   ProjectEngineResult,
   CapitalEngineResult,
   WaterfallResult,
-  AnnualPnl, // Importante: Certifique-se de que AnnualPnl está sendo importado aqui
+  AnnualPnl,
 } from '@domain/types';
 
 export type {
@@ -23,10 +23,10 @@ export type {
   CapitalEngineResult,
   WaterfallResult,
 };
-import { runScenarioEngine } from '@engines/scenario/scenarioEngine'; //
-import { runProjectEngine } from '@engines/project/projectEngine'; //
-import { runCapitalEngine } from '@engines/capital/capitalEngine'; //
-import { applyEquityWaterfall } from '@engines/waterfall/waterfallEngine'; //
+import { runScenarioEngine } from '@engines/scenario/scenarioEngine';
+import { runProjectEngine } from '@engines/project/projectEngine';
+import { runCapitalEngine } from '@engines/capital/capitalEngine';
+import { applyEquityWaterfall } from '@engines/waterfall/waterfallEngine';
 
 /**
  * Full top-down financial pipeline:
@@ -41,27 +41,33 @@ export function runFullModel(input: FullModelInput): FullModelOutput {
 
   // 1. Scenario engine: consolidate operations into annual P&L
   const scenarioResult = runScenarioEngine(scenario);
-  const consolidated: ConsolidatedAnnualPnl[] = scenarioResult.consolidatedAnnualPnl;
+  if (!scenarioResult.ok) {
+    throw new Error(`Scenario engine failed: ${scenarioResult.error.message}`);
+  }
 
-  // --- CORREÇÃO: DECLARAÇÃO DA VARIÁVEL FALTANTE ---
-  // Esta linha extrai os P&Ls individuais de cada operação para serem usados no exportador
-  const allOperationsAnnualPnl: AnnualPnl[] = scenarioResult.operations.flatMap(op => op.annualPnl);
+  const scenarioData = scenarioResult.data;
+  const consolidated: ConsolidatedAnnualPnl[] = scenarioData.consolidatedAnnualPnl;
+  const allOperationsAnnualPnl: AnnualPnl[] = scenarioData.operations.flatMap((op) => op.annualPnl);
 
   // 2. Project engine: UFCF + DCF valuation + project KPIs
   // v0.7: Pass capitalConfig to enable WACC calculation
-  const projectResult: ProjectEngineResult = runProjectEngine(
+  const projectResult = runProjectEngine(
     consolidated,
     projectConfig,
     capitalConfig
   );
 
+  if (!projectResult.ok) {
+    throw new Error(`Project engine failed: ${projectResult.error.message}`);
+  }
+
   // 3. Capital engine: debt schedule + levered FCF
   // v2.2: Pass monthly P&L for monthly debt schedule and cash flow calculation
   const capitalResult: CapitalEngineResult = runCapitalEngine(
     consolidated,
-    projectResult.unleveredFcf,
+    projectResult.data.unleveredFcf,
     capitalConfig,
-    scenarioResult.consolidatedMonthlyPnl
+    scenarioData.consolidatedMonthlyPnl
   );
 
   // 4. Waterfall engine: LP/GP equity waterfall using ownerLeveredCashFlows
@@ -74,11 +80,9 @@ export function runFullModel(input: FullModelInput): FullModelOutput {
   return {
     scenario,
     consolidatedAnnualPnl: consolidated,
-    project: projectResult,
+    project: projectResult.data,
     capital: capitalResult,
     waterfall: waterfallResult,
-    
-    // Agora a variável 'allOperationsAnnualPnl' declarada acima é usada aqui
     operationsResult: {
       annualPnl: allOperationsAnnualPnl
     }

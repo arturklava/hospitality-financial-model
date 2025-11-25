@@ -32,7 +32,11 @@ export function calculateAssetMetrics(
   // Re-run scenario engine to get individual operation results
   // This ensures we have access to operation-specific P&L data
   const scenarioResult = runScenarioEngine(modelOutput.scenario);
-  const { operations } = scenarioResult;
+  if (!scenarioResult.ok) {
+    throw new Error('Scenario engine failed while computing asset metrics');
+  }
+
+  const { operations } = scenarioResult.data;
   
   // Find the operation by matching ID
   const operationIndex = modelOutput.scenario.operations.findIndex(

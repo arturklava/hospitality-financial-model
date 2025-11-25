@@ -32,5 +32,6 @@
       "@workers/*": ["src/workers/*"]
     }
   },
-  "include": ["src"]
+  "include": ["src"],
+  "exclude": ["src/tests/**/*"]
 }
