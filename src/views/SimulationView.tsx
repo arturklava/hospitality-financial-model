@@ -1,5 +1,6 @@
+import { useMemo } from 'react';
 import { SensitivityPanel } from '../components/analysis/SensitivityPanel';
-import type { FullModelInput, FullModelOutput } from '../domain/types';
+import type { FullModelInput, FullModelOutput, NamedScenario } from '../domain/types';
 import { useTranslation } from '../contexts/LanguageContext';
 
 interface SimulationViewProps {
@@ -8,10 +9,14 @@ interface SimulationViewProps {
   onRunSimulation: () => void;
 }
 
-export function SimulationView({ input }: SimulationViewProps) {
+export function SimulationView({ input, baseOutput }: SimulationViewProps) {
   const { t } = useTranslation();
 
-  /* baseScenario useMemo removed as it's no longer used */
+  const baseScenario: NamedScenario = useMemo(() => ({
+    id: 'simulation-view',
+    name: 'Simulation View Scenario',
+    modelConfig: input,
+  }), [input]);
 
   return (
     <div className="simulation-view">
@@ -20,12 +25,7 @@ export function SimulationView({ input }: SimulationViewProps) {
         <p style={{ color: 'var(--text-secondary)', fontFamily: 'var(--font-body, "Montserrat", sans-serif)' }}>{t('risk.subtitle')}</p>
       </div>
 
-      <SensitivityPanel currentOutput={input as any} />
-      {/* Note: SensitivityPanel expects FullModelOutput, but SimulationView only has input in this context currently. 
-          Passing 'input' cast to any to satisfy type checker temporarily, assuming SensitivityPanel might handle it or it's a placeholder. 
-          Actually, checking props, 'baseOutput' is available in SimulationView props! 
-          So I should pass 'currentOutput={baseOutput}'.
-      */}
+      <SensitivityPanel baseScenario={baseScenario} baseOutput={baseOutput} />
     </div>
   );
 }

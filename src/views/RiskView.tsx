@@ -546,7 +546,7 @@ export function RiskView({ input, baseOutput, onRunSimulation, onUpdateInput }: 
 
           {/* Right: Sensitivity Panel */}
           <div>
-            <SensitivityPanel currentOutput={baseOutput} />
+            <SensitivityPanel baseScenario={baseScenario} baseOutput={baseOutput} />
           </div>
         </div>
       )}
