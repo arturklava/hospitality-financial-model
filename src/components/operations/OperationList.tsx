@@ -254,7 +254,7 @@ export function OperationList({
                         marginBottom: '0.25rem',
                       }}
                     >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', minWidth: 0 }}>
                         {/* Active Status Dot */}
                         <div
                           style={{
@@ -280,7 +280,15 @@ export function OperationList({
                             fontWeight: 600,
                             fontSize: '0.9375rem',
                             color: isSelected ? 'white' : 'var(--text-primary)',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            display: '-webkit-box',
+                            WebkitLineClamp: 2,
+                            WebkitBoxOrient: 'vertical',
+                            lineHeight: 1.2,
+                            maxHeight: '2.4em',
                           }}
+                          title={op.name}
                         >
                           {op.name}
                         </div>
