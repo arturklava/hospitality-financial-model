@@ -193,6 +193,7 @@ function App() {
               capitalConfig={input.capitalConfig}
               onNavigateToGlossary={() => setActiveView('glossary')}
               hasActiveOperations={hasActiveOperations}
+              onNavigateToOperations={() => setActiveView('operations')}
             />
           </PageTransition>
         );
