@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { FullModelOutput, OperationConfig } from '../domain/types';
 import { OperationFilter } from '../components/filters/OperationFilter';
 import { StatementTable, type StatementRow } from '../components/financials/StatementTable';
@@ -343,6 +343,10 @@ export function PnLView({ operations, modelOutput }: PnLViewProps) {
   const [selectedOperationIds, setSelectedOperationIds] = useState<Set<string>>(
     new Set(operations.map(op => op.id))
   );
+
+  useEffect(() => {
+    setSelectedOperationIds(new Set(operations.map(op => op.id)));
+  }, [operations]);
 
   // Filter and aggregate P&L for selected operations
   const filteredPnl = useMemo(() => {

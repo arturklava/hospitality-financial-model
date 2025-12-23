@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { FullModelOutput, FullModelInput, OperationConfig } from '../domain/types';
 import { OperationMultiSelect } from '../components/filters/OperationMultiSelect';
 import { StatementTable } from '../components/financials/StatementTable';
@@ -16,6 +16,10 @@ export function CashFlowView({ operations, modelOutput, input }: CashFlowViewPro
   const [selectedOperationIds, setSelectedOperationIds] = useState<Set<string>>(
     new Set(operations.map(op => op.id))
   );
+
+  useEffect(() => {
+    setSelectedOperationIds(new Set(operations.map(op => op.id)));
+  }, [operations]);
 
   // Generate comprehensive cash flow statement with 3 sections (Operating, Investing, Financing)
   const statementRows = useMemo(() => {
