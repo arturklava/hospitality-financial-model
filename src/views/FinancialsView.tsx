@@ -5,6 +5,7 @@ import { WaterfallChart } from '../components/charts/WaterfallChart';
 import { ScenarioSummaryPanel } from '../components/ScenarioSummaryPanel';
 import { StatementTable, type StatementRow } from '../components/financials/StatementTable';
 import { calculateBreakevenOccupancy } from '@engines/project/projectEngine';
+import { calculateTotalDebtService } from '../ui/utils/debtService';
 import type { FullModelOutput, ConsolidatedAnnualPnl } from '@domain/types';
 import { useTranslation } from '../contexts/LanguageContext';
 import type { TranslationKey } from '../i18n/translations';
@@ -189,9 +190,7 @@ export function FinancialsView({ output }: FinancialsViewProps) {
   }
 
   // Calculate breakeven occupancy
-  const totalDebtService = output.capital.debtSchedule.entries.length > 0
-    ? output.capital.debtSchedule.entries[0].interest + output.capital.debtSchedule.entries[0].principal
-    : 0;
+  const totalDebtService = calculateTotalDebtService(output.capital.debtSchedule);
   const breakevenMetrics = calculateBreakevenOccupancy(output.consolidatedAnnualPnl, totalDebtService);
 
   return (
