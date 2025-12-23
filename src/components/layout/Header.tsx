@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Save, Download, Eye, EyeOff, FolderOpen, FileText, Globe } from 'lucide-react';
 import { useAudit } from '../../ui/contexts/AuditContext';
 import { useTranslation } from '../../contexts/LanguageContext';
+import { useAuth } from '../../contexts/AuthContext';
 import { MotionButton } from '../common/MotionButton';
 import { ScenarioHubModal } from '../governance/ScenarioHubModal';
 import { ExportDialog } from '../reports/ExportDialog';
@@ -35,8 +36,39 @@ export function Header({
 }: HeaderProps) {
     const { isAuditMode, toggleAuditMode } = useAudit();
     const { t, language, toggleLanguage } = useTranslation();
+    const { isGuest } = useAuth();
     const [isScenarioHubOpen, setIsScenarioHubOpen] = useState(false);
     const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
+    const [isExcelGateOpen, setIsExcelGateOpen] = useState(false);
+    const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+
+    const handleSave = async () => {
+        if (saveState === 'saving') return;
+
+        setSaveState('saving');
+        try {
+            await Promise.resolve(onSave());
+            setSaveState('saved');
+            setTimeout(() => setSaveState('idle'), 1500);
+        } catch (error) {
+            console.error(error);
+            setSaveState('error');
+            setTimeout(() => setSaveState('idle'), 2000);
+        }
+    };
+
+    const getSaveLabel = () => {
+        if (saveState === 'saving') {
+            return language === 'pt' ? 'Salvando…' : 'Saving…';
+        }
+        if (saveState === 'saved') {
+            return language === 'pt' ? 'Salvo!' : 'Saved!';
+        }
+        if (saveState === 'error') {
+            return language === 'pt' ? 'Erro' : 'Error';
+        }
+        return t('common.save');
+    };
 
     return (
         <>
@@ -131,7 +163,9 @@ export function Header({
                     {scenario && output && (
                         <MotionButton
                             className="btn btn-secondary"
-                            onClick={() => setIsExportDialogOpen(true)}
+                            onClick={() =>
+                                isGuest ? setIsExcelGateOpen(true) : setIsExportDialogOpen(true)
+                            }
                             title={t('header.exportExcel')}
                             style={{
                                 display: 'flex',
@@ -143,9 +177,14 @@ export function Header({
                             <span>{t('header.exportExcel')}</span>
                         </MotionButton>
                     )}
-                    <MotionButton className="btn btn-primary" onClick={onSave} title={t('common.save')}>
+                    <MotionButton
+                        className="btn btn-primary"
+                        onClick={handleSave}
+                        title={t('common.save')}
+                        disabled={saveState === 'saving'}
+                    >
                         <Save size={18} />
-                        <span>{t('common.save')}</span>
+                        <span>{getSaveLabel()}</span>
                     </MotionButton>
                 </div>
             </header>
@@ -170,6 +209,58 @@ export function Header({
                     scenario={scenario}
                     output={output}
                 />
+            )}
+            {isExcelGateOpen && (
+                <div
+                    style={{
+                        position: 'fixed',
+                        top: 0,
+                        left: 0,
+                        width: '100%',
+                        height: '100%',
+                        backgroundColor: 'rgba(0,0,0,0.4)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        zIndex: 1000,
+                    }}
+                    role="dialog"
+                    aria-modal="true"
+                >
+                    <div
+                        style={{
+                            background: 'var(--surface, #fff)',
+                            borderRadius: 'var(--radius, 12px)',
+                            padding: '1.5rem',
+                            maxWidth: '420px',
+                            width: '90%',
+                            boxShadow: '0 10px 30px rgba(0,0,0,0.12)',
+                            color: 'var(--text-primary, #0f172a)',
+                        }}
+                    >
+                        <h3 style={{ marginBottom: '0.75rem', fontSize: '1.15rem', fontWeight: 700 }}>
+                            {language === 'pt'
+                                ? 'Exportação para Excel indisponível em modo demo'
+                                : 'Excel export unavailable in demo mode'}
+                        </h3>
+                        <p style={{ marginBottom: '1rem', lineHeight: 1.5 }}>
+                            {language === 'pt'
+                                ? 'Faça login para exportar seus cenários em Excel. No modo convidado, oferecemos apenas visualização e edição rápida.'
+                                : 'Sign in to export your scenarios to Excel. In guest/demo mode, we provide view and quick editing only.'}
+                        </p>
+                        <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
+                            <MotionButton
+                                className="btn btn-secondary"
+                                onClick={() => setIsExcelGateOpen(false)}
+                            >
+                                {language === 'pt' ? 'Fechar' : 'Close'}
+                            </MotionButton>
+                            <MotionButton className="btn btn-primary" onClick={() => setIsExcelGateOpen(false)}>
+                                {language === 'pt' ? 'Entrar' : 'Sign in'}
+                            </MotionButton>
+                        </div>
+                    </div>
+                </div>
             )}
         </>
     );
