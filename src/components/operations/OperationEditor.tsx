@@ -29,6 +29,46 @@ export function OperationEditor({ operation, onChange }: OperationEditorProps) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+      {/* General Section */}
+      <SectionCard title="General" defaultExpanded={true}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <InputGroup label="Name" required>
+            <input
+              type="text"
+              value={operation.name}
+              onChange={(e) => onChange?.({ name: e.target.value })}
+              style={{
+                width: '100%',
+                padding: '0.75rem',
+                border: '1px solid var(--border)',
+                borderRadius: 'var(--radius)',
+                fontSize: '0.9375rem',
+                backgroundColor: 'var(--surface)',
+                color: 'var(--text-primary)',
+              }}
+            />
+          </InputGroup>
+
+          <InputGroup label="Type">
+            <div
+              style={{
+                padding: '0.75rem',
+                backgroundColor: 'var(--surface-hover)',
+                borderRadius: 'var(--radius)',
+                fontSize: '0.9375rem',
+                fontWeight: 500,
+                color: 'var(--text-secondary)',
+              }}
+            >
+              {operation.operationType
+                .split('_')
+                .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+                .join(' ')}
+            </div>
+          </InputGroup>
+        </div>
+      </SectionCard>
+
       {/* Revenue Drivers Section */}
       <SectionCard title={t('operations.sections.revenue')} defaultExpanded={true}>
         <OperationDriversForm
