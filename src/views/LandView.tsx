@@ -94,11 +94,11 @@ export function LandView({ input, onProjectConfigChange }: LandViewProps) {
     return schedule.sort((a, b) => a.month - b.month);
   }, [selectedLand, t]);
 
-  const handleLandChange = (updates: Partial<LandConfig>) => {
-    if (!selectedLand || !onProjectConfigChange) return;
+  const updateLandConfig = (landId: string, updates: Partial<LandConfig>) => {
+    if (!onProjectConfigChange) return;
 
     const updatedLandConfigs = landConfigs.map((land) => {
-      if (land.id === selectedLand.id) {
+      if (land.id === landId) {
         return { ...land, ...updates };
       }
       return land;
@@ -107,12 +107,18 @@ export function LandView({ input, onProjectConfigChange }: LandViewProps) {
     onProjectConfigChange({ landConfigs: updatedLandConfigs });
   };
 
+  const handleLandChange = (updates: Partial<LandConfig>) => {
+    if (!selectedLand) return;
+
+    updateLandConfig(selectedLand.id, updates);
+  };
+
   const handleAddLand = () => {
     if (!onProjectConfigChange) return;
 
     const newLand: LandConfig = {
       id: `land-${Date.now()}`,
-      name: 'New Land Acquisition',
+      name: t('land.defaultName'),
       totalCost: 0,
       acquisitionMonth: -12,
       downPayment: 0,
@@ -121,8 +127,39 @@ export function LandView({ input, onProjectConfigChange }: LandViewProps) {
     };
 
     const updatedLandConfigs = [...landConfigs, newLand];
-    onProjectConfigChange({ landConfigs: updatedLandConfigs });
     setSelectedLandId(newLand.id);
+    onProjectConfigChange({ landConfigs: updatedLandConfigs });
+  };
+
+  const handleDeleteLand = (landId: string) => {
+    if (!onProjectConfigChange) return;
+
+    const confirmDelete = window.confirm(t('land.deleteConfirm'));
+    if (!confirmDelete) return;
+
+    const updatedLandConfigs = landConfigs.filter((land) => land.id !== landId);
+    onProjectConfigChange({ landConfigs: updatedLandConfigs });
+
+    if (selectedLandId === landId) {
+      setSelectedLandId(updatedLandConfigs[0]?.id ?? null);
+    }
+  };
+
+  const handleDuplicateLand = (landId: string) => {
+    if (!onProjectConfigChange) return;
+
+    const sourceLand = landConfigs.find((land) => land.id === landId);
+    if (!sourceLand) return;
+
+    const duplicateLand: LandConfig = {
+      ...sourceLand,
+      id: `land-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      name: `${sourceLand.name} ${t('land.copySuffix')}`.trim(),
+    };
+
+    const updatedLandConfigs = [...landConfigs, duplicateLand];
+    onProjectConfigChange({ landConfigs: updatedLandConfigs });
+    setSelectedLandId(duplicateLand.id);
   };
 
   // Master Panel: Land List
@@ -150,28 +187,95 @@ export function LandView({ input, onProjectConfigChange }: LandViewProps) {
         </button>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-        {landConfigs.map((land) => (
-          <button
-            key={land.id}
-            onClick={() => setSelectedLandId(land.id)}
-            style={{
-              padding: '0.75rem',
-              backgroundColor: selectedLandId === land.id ? 'var(--primary-light)' : 'var(--surface)',
-              border: `1px solid ${selectedLandId === land.id ? 'var(--primary)' : 'var(--border)'}`,
-              borderRadius: 'var(--radius)',
-              cursor: 'pointer',
-              textAlign: 'left',
-              transition: 'all 0.2s',
-            }}
-          >
-            <div style={{ fontWeight: 600, color: 'var(--text-primary)', marginBottom: '0.25rem', fontFamily: 'var(--font-body, "Montserrat", sans-serif)' }}>
-              {land.name}
+        {landConfigs.map((land) => {
+          const isSelected = selectedLandId === land.id;
+
+          return (
+            <div
+              key={land.id}
+              data-testid={`land-card-${land.id}`}
+              onClick={() => setSelectedLandId(land.id)}
+              style={{
+                padding: '0.75rem',
+                backgroundColor: isSelected ? 'var(--primary-light)' : 'var(--surface)',
+                border: `1px solid ${isSelected ? 'var(--primary)' : 'var(--border)'}`,
+                borderRadius: 'var(--radius)',
+                cursor: 'pointer',
+                textAlign: 'left',
+                transition: 'all 0.2s',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.5rem',
+              }}
+            >
+              <input
+                type="text"
+                value={land.name}
+                data-testid={`land-name-${land.id}`}
+                onClick={(e) => e.stopPropagation()}
+                onChange={(e) => updateLandConfig(land.id, { name: e.target.value })}
+                style={{
+                  width: '100%',
+                  padding: '0.5rem 0.75rem',
+                  border: '1px solid var(--border)',
+                  borderRadius: 'var(--radius)',
+                  fontWeight: 600,
+                  color: 'var(--text-primary)',
+                  fontFamily: 'var(--font-body, "Montserrat", sans-serif)',
+                  backgroundColor: 'var(--surface)',
+                }}
+              />
+
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
+                <div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', fontFamily: 'var(--font-body, "Montserrat", sans-serif)' }}>
+                  {formatCurrency(land.totalCost, language)}
+                </div>
+
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDuplicateLand(land.id);
+                    }}
+                    style={{
+                      padding: '0.35rem 0.75rem',
+                      border: '1px solid var(--border)',
+                      backgroundColor: 'var(--surface)',
+                      borderRadius: 'var(--radius)',
+                      cursor: 'pointer',
+                      fontSize: '0.8125rem',
+                      fontWeight: 600,
+                      fontFamily: 'var(--font-body, "Montserrat", sans-serif)',
+                    }}
+                  >
+                    {t('common.duplicate')}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeleteLand(land.id);
+                    }}
+                    style={{
+                      padding: '0.35rem 0.75rem',
+                      border: '1px solid var(--border)',
+                      backgroundColor: 'var(--surface)',
+                      borderRadius: 'var(--radius)',
+                      cursor: 'pointer',
+                      fontSize: '0.8125rem',
+                      fontWeight: 600,
+                      color: 'var(--error)',
+                      fontFamily: 'var(--font-body, "Montserrat", sans-serif)',
+                    }}
+                  >
+                    {t('common.delete')}
+                  </button>
+                </div>
+              </div>
             </div>
-            <div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', fontFamily: 'var(--font-body, "Montserrat", sans-serif)' }}>
-              {formatCurrency(land.totalCost, language)}
-            </div>
-          </button>
-        ))}
+          );
+        })}
         {landConfigs.length === 0 && (
           <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-secondary)', fontFamily: 'var(--font-body, "Montserrat", sans-serif)' }}>
             {t('land.noLandConfigured')}
