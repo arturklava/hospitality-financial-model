@@ -1,0 +1,269 @@
+.app-container {
+  display: flex;
+  flex-direction: row;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.sidebar {
+  width: 240px;
+  flex-shrink: 0;
+  height: 100%;
+  background: white;
+  border-right: 1px solid #e2e8f0;
+  overflow-y: auto;
+}
+
+.main-content-wrapper {
+  flex: 1;
+  height: 100%;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  min-width: 0; /* Flexbox overflow fix */
+}
+
+.app-main {
+  min-height: 100%;
+  height: auto;
+  padding: 2rem;
+  background-color: var(--bg-subtle);
+}
+
+.app-header {
+  margin-bottom: 2.5rem;
+  text-align: center;
+}
+
+.app-header h1 {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--color-slate-900);
+  margin-bottom: 0.5rem;
+  letter-spacing: -0.025em;
+}
+
+.app-header p {
+  color: var(--color-slate-500);
+  font-size: 1.1rem;
+}
+
+/* Dashboard Grid */
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: 350px 1fr;
+  gap: 1.5rem;
+  align-items: start;
+}
+
+@media (max-width: 1024px) {
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Card Component - Inherits base .card from index.css, add specific overrides here if needed */
+.card h2 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-strong);
+  margin-bottom: 1.25rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.card h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-strong);
+  margin: 1.5rem 0 0.75rem 0;
+}
+
+/* Controls Section */
+.controls-section {
+  position: sticky;
+  top: 1.5rem;
+}
+
+.config-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--color-slate-100);
+  font-size: 0.9rem;
+}
+
+.config-label {
+  color: var(--color-slate-500);
+}
+
+.config-value {
+  font-weight: 600;
+  color: var(--color-slate-900);
+  text-align: right;
+}
+
+/* Inputs */
+.field-group {
+  margin-bottom: 1.25rem;
+}
+
+.field-group label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-slate-700);
+}
+
+.field-group input[type="number"],
+.field-group input[type="text"],
+.scenario-select {
+  width: 100%;
+  padding: 0.625rem;
+  border: 1px solid var(--color-slate-300);
+  border-radius: 6px;
+  font-size: 0.95rem;
+  color: var(--color-slate-900);
+  background-color: white;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  box-sizing: border-box;
+}
+
+.field-group input[type="number"]:focus,
+.field-group input[type="text"]:focus,
+.scenario-select:focus {
+  outline: none;
+  border-color: var(--color-blue-600);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.field-group input[type="range"] {
+  width: 100%;
+  margin: 0.5rem 0;
+}
+
+/* KPI Cards */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  align-items: start;
+}
+
+.kpi-card,
+.kpi-item {
+  background: white;
+  padding: 1.25rem;
+  border-radius: 6px;
+  border: 1px solid var(--color-slate-200);
+  border-left-width: 4px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 80px;
+}
+
+.kpi-card.kpi-category-return,
+.kpi-item.kpi-category-return {
+  border-left-color: #10b981; /* Green for Return metrics */
+}
+
+.kpi-card.kpi-category-valuation,
+.kpi-item.kpi-category-valuation {
+  border-left-color: #3b82f6; /* Blue for Valuation metrics */
+}
+
+.kpi-card.kpi-category-debt,
+.kpi-item.kpi-category-debt {
+  border-left-color: #2563eb; /* Blue for Debt metrics */
+}
+
+.kpi-card.kpi-category-operational,
+.kpi-item.kpi-category-operational {
+  border-left-color: #10b981; /* Green for Operational metrics */
+}
+
+.kpi-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--color-slate-400);
+  margin-bottom: 0.75rem;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.kpi-value {
+  font-size: 1.875rem;
+  font-weight: 700;
+  color: var(--color-slate-900);
+  font-family: 'Space Grotesk', monospace;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+
+/* Tables */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+table th {
+  text-align: left;
+  padding: 0.75rem 1rem;
+  background-color: var(--color-slate-50);
+  color: var(--color-slate-500);
+  font-weight: 600;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid var(--color-slate-200);
+}
+
+table td {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border-soft);
+  color: var(--text-strong);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Numeric columns right-aligned */
+table th:not(:first-child),
+table td:not(:first-child) {
+  text-align: right;
+}
+
+table tr:last-child td {
+  border-bottom: none;
+}
+
+/* Utility Classes */
+.text-positive {
+  color: var(--color-emerald-500);
+  font-weight: 600;
+}
+
+.text-negative {
+  color: var(--color-red-500);
+  font-weight: 600;
+}
+
+.scenario-selector {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+.loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 200px;
+  color: var(--color-slate-500);
+}
