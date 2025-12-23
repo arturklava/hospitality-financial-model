@@ -22,6 +22,7 @@ interface DashboardViewProps {
   capitalConfig?: CapitalStructureConfig;
   onNavigateToGlossary?: () => void;
   hasActiveOperations?: boolean;
+  onNavigateToOperations?: () => void;
 }
 
 export function DashboardView({
@@ -35,8 +36,9 @@ export function DashboardView({
   capitalConfig,
   onNavigateToGlossary,
   hasActiveOperations,
+  onNavigateToOperations,
 }: DashboardViewProps) {
-  const { t, language } = useTranslation();
+  const { t } = useTranslation();
   const [showDetailsModal, setShowDetailsModal] = useState(false);
 
   if (hasActiveOperations === false) {
@@ -63,10 +65,18 @@ export function DashboardView({
               fontFamily: 'var(--font-body, "Montserrat", sans-serif)',
             }}
           >
-            {language === 'pt'
-              ? 'Nenhuma operação ativa. Ative ou adicione uma operação para visualizar o dashboard.'
-              : 'No active operations. Activate or add an operation to view the dashboard.'}
+            {t('dashboard.noActiveOperations')}
           </p>
+          {onNavigateToOperations && (
+            <button
+              type="button"
+              onClick={onNavigateToOperations}
+              className="btn btn-primary"
+              style={{ marginTop: '1rem' }}
+            >
+              {t('dashboard.activateOperationCta')}
+            </button>
+          )}
         </div>
         <NoDataState />
       </div>
