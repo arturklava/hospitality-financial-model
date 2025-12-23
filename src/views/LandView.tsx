@@ -50,6 +50,22 @@ export function LandView({ input, onProjectConfigChange }: LandViewProps) {
   );
 
   const selectedLand = landConfigs.find((land) => land.id === selectedLandId);
+  const selectedInstallments = selectedLand?.installments ?? [];
+
+  const sanitizedInstallments = useMemo(() => {
+    if (!selectedInstallments) return [];
+
+    return selectedInstallments
+      .map((installment) => ({
+        ...installment,
+        month: Number.isFinite(installment.month)
+          ? Math.round(installment.month)
+          : 0,
+        amount: Math.max(0, installment.amount || 0),
+        description: installment.description?.trim() || '',
+      }))
+      .filter((installment) => installment.amount > 0);
+  }, [selectedInstallments]);
 
   // Calculate payment schedule for selected land
   const paymentSchedule = useMemo(() => {
@@ -68,13 +84,13 @@ export function LandView({ input, onProjectConfigChange }: LandViewProps) {
     }
 
     // Installments
-    if (selectedLand.installments && selectedLand.installments.length > 0) {
-      selectedLand.installments.forEach((installment) => {
+    if (sanitizedInstallments.length > 0) {
+      sanitizedInstallments.forEach((installment) => {
         schedule.push({
           month: installment.month,
           monthLabel: `${t('common.month')} ${installment.month}`,
           amount: installment.amount,
-          type: 'Installment', // TODO: Add key for installment if missing, or use common
+          type: installment.description || t('land.installment'),
         });
       });
     }
@@ -92,7 +108,7 @@ export function LandView({ input, onProjectConfigChange }: LandViewProps) {
 
     // Sort by month
     return schedule.sort((a, b) => a.month - b.month);
-  }, [selectedLand, t]);
+  }, [sanitizedInstallments, selectedLand, t]);
 
   const handleLandChange = (updates: Partial<LandConfig>) => {
     if (!selectedLand || !onProjectConfigChange) return;
@@ -123,6 +139,52 @@ export function LandView({ input, onProjectConfigChange }: LandViewProps) {
     const updatedLandConfigs = [...landConfigs, newLand];
     onProjectConfigChange({ landConfigs: updatedLandConfigs });
     setSelectedLandId(newLand.id);
+  };
+
+  const handleAddInstallment = () => {
+    if (!selectedLand) return;
+
+    const currentInstallments = selectedLand.installments || [];
+    const newInstallment = {
+      month: selectedLand.acquisitionMonth ?? 0,
+      amount: 0,
+      description: '',
+    };
+
+    handleLandChange({ installments: [...currentInstallments, newInstallment] });
+  };
+
+  const handleInstallmentChange = (
+    index: number,
+    field: 'month' | 'amount' | 'description',
+    value: number | string
+  ) => {
+    if (!selectedLand) return;
+
+    const currentInstallments = selectedLand.installments || [];
+    const updatedInstallments = currentInstallments.map((installment, idx) => {
+      if (idx !== index) return installment;
+
+      if (field === 'month') {
+        return { ...installment, month: Math.round(Number(value) || 0) };
+      }
+
+      if (field === 'amount') {
+        return { ...installment, amount: Math.max(0, Number(value) || 0) };
+      }
+
+      return { ...installment, description: (value as string) ?? '' };
+    });
+
+    handleLandChange({ installments: updatedInstallments });
+  };
+
+  const handleRemoveInstallment = (index: number) => {
+    if (!selectedLand) return;
+
+    const currentInstallments = selectedLand.installments || [];
+    const updatedInstallments = currentInstallments.filter((_, idx) => idx !== index);
+    handleLandChange({ installments: updatedInstallments });
   };
 
   // Master Panel: Land List
@@ -275,8 +337,9 @@ export function LandView({ input, onProjectConfigChange }: LandViewProps) {
           <InputGroup label={t('land.downPaymentMonth')}>
             <input
               type="number"
+              step="1"
               value={selectedLand.downPaymentMonth}
-              onChange={(e) => handleLandChange({ downPaymentMonth: parseInt(e.target.value) || 0 })}
+              onChange={(e) => handleLandChange({ downPaymentMonth: parseInt(e.target.value, 10) || 0 })}
               style={{
                 width: '100%',
                 padding: '0.75rem',
@@ -317,8 +380,9 @@ export function LandView({ input, onProjectConfigChange }: LandViewProps) {
           <InputGroup label={t('land.barterMonth')}>
             <input
               type="number"
+              step="1"
               value={selectedLand.barterMonth ?? 0}
-              onChange={(e) => handleLandChange({ barterMonth: parseInt(e.target.value) || 0 })}
+              onChange={(e) => handleLandChange({ barterMonth: parseInt(e.target.value, 10) || 0 })}
               style={{
                 width: '100%',
                 padding: '0.75rem',
@@ -331,6 +395,134 @@ export function LandView({ input, onProjectConfigChange }: LandViewProps) {
               }}
             />
           </InputGroup>
+        </div>
+
+        <div style={{ marginTop: '2rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem' }}>
+            <h4 style={{ margin: 0, fontSize: '1rem', color: 'var(--text-primary)', fontFamily: 'var(--font-display, "Josefin Sans", sans-serif)' }}>
+              {t('land.installments')}
+            </h4>
+            <button
+              type="button"
+              onClick={handleAddInstallment}
+              style={{
+                padding: '0.5rem 0.75rem',
+                backgroundColor: 'var(--primary)',
+                color: 'white',
+                border: 'none',
+                borderRadius: 'var(--radius)',
+                fontSize: '0.875rem',
+                cursor: 'pointer',
+                fontWeight: 500,
+                fontFamily: 'var(--font-body, "Montserrat", sans-serif)',
+              }}
+            >
+              {t('land.addInstallment')}
+            </button>
+          </div>
+
+          {(selectedLand.installments || []).length === 0 && (
+            <div style={{
+              padding: '1rem',
+              border: '1px dashed var(--border)',
+              borderRadius: 'var(--radius)',
+              color: 'var(--text-secondary)',
+              fontFamily: 'var(--font-body, "Montserrat", sans-serif)',
+            }}>
+              {t('land.noInstallments')}
+            </div>
+          )}
+
+          {(selectedLand.installments || []).map((installment, index) => (
+            <div
+              key={`${installment.month}-${index}`}
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                gap: '1rem',
+                padding: '1rem',
+                border: '1px solid var(--border)',
+                borderRadius: 'var(--radius)',
+                alignItems: 'center',
+                backgroundColor: 'var(--surface)',
+              }}
+            >
+              <InputGroup label={t('land.installmentMonth')}>
+                <input
+                  type="number"
+                  step="1"
+                  value={installment.month}
+                  onChange={(e) => handleInstallmentChange(index, 'month', parseInt(e.target.value, 10) || 0)}
+                  style={{
+                    width: '100%',
+                    padding: '0.75rem',
+                    border: '1px solid var(--border)',
+                    borderRadius: 'var(--radius)',
+                    fontSize: '0.9375rem',
+                    backgroundColor: 'var(--surface)',
+                    color: 'var(--text-primary)',
+                    fontFamily: 'var(--font-body, "Montserrat", sans-serif)',
+                  }}
+                />
+              </InputGroup>
+
+              <InputGroup label={t('land.installmentAmount')}>
+                <CurrencyInput
+                  value={installment.amount}
+                  onChange={(value) => handleInstallmentChange(index, 'amount', value)}
+                  style={{
+                    width: '100%',
+                    padding: '0.75rem',
+                    border: '1px solid var(--border)',
+                    borderRadius: 'var(--radius)',
+                    fontSize: '0.9375rem',
+                    backgroundColor: 'var(--surface)',
+                    color: 'var(--text-primary)',
+                    fontFamily: 'var(--font-body, "Montserrat", sans-serif)',
+                  }}
+                />
+              </InputGroup>
+
+              <InputGroup label={t('land.installmentNote')}>
+                <input
+                  type="text"
+                  value={installment.description || ''}
+                  onChange={(e) => handleInstallmentChange(index, 'description', e.target.value)}
+                  placeholder={t('land.installmentNotePlaceholder')}
+                  style={{
+                    width: '100%',
+                    padding: '0.75rem',
+                    border: '1px solid var(--border)',
+                    borderRadius: 'var(--radius)',
+                    fontSize: '0.9375rem',
+                    backgroundColor: 'var(--surface)',
+                    color: 'var(--text-primary)',
+                    fontFamily: 'var(--font-body, "Montserrat", sans-serif)',
+                  }}
+                />
+              </InputGroup>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <button
+                  type="button"
+                  onClick={() => handleRemoveInstallment(index)}
+                  style={{
+                    padding: '0.5rem 0.75rem',
+                    backgroundColor: 'transparent',
+                    color: 'var(--danger)',
+                    border: '1px solid var(--danger)',
+                    borderRadius: 'var(--radius)',
+                    fontSize: '0.875rem',
+                    cursor: 'pointer',
+                    fontWeight: 500,
+                    fontFamily: 'var(--font-body, "Montserrat", sans-serif)',
+                  }}
+                >
+                  {t('land.removeInstallment')}
+                </button>
+              </div>
+            </div>
+          ))}
         </div>
       </SectionCard>
 
@@ -355,7 +547,10 @@ export function LandView({ input, onProjectConfigChange }: LandViewProps) {
                   }}
                 />
                 <Tooltip
-                  formatter={(value: number) => formatCurrency(value, language)}
+                  formatter={(value: number, _name, entry) => [
+                    formatCurrency(value, language),
+                    entry?.payload?.type,
+                  ]}
                   contentStyle={{
                     backgroundColor: 'white',
                     border: '1px solid var(--border)',
