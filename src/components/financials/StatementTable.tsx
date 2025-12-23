@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { ChevronRight, ChevronDown } from 'lucide-react';
 import { DataTable } from '../ui/DataTable';
 import { useTranslation } from '../../contexts/LanguageContext';
-import { getLocaleConfig } from '../../utils/formatters';
+import { getCurrencySymbol, getLocaleConfig } from '../../utils/formatters';
 
 export interface StatementRow {
   id: string;
@@ -37,11 +37,12 @@ function getValueColor(value: number | null): string {
 export function StatementTable({
   rows,
   columnHeaders,
-  currencySymbol = '',
+  currencySymbol,
   showNegativeInParentheses = true,
 }: StatementTableProps) {
   const { t, language } = useTranslation();
   const { locale } = getLocaleConfig(language);
+  const resolvedCurrencySymbol = currencySymbol ?? getCurrencySymbol(language);
 
   // Groups are collapsed by default (empty set means nothing is expanded)
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
@@ -71,10 +72,10 @@ export function StatementTable({
     }).format(absValue);
 
     if (showNegativeInParentheses && value < 0) {
-      return `(${currencySymbol}${formatted})`;
+      return `(${resolvedCurrencySymbol}${formatted})`;
     }
 
-    return `${value < 0 ? '-' : ''}${currencySymbol}${formatted}`;
+    return `${value < 0 ? '-' : ''}${resolvedCurrencySymbol}${formatted}`;
   };
 
   /**

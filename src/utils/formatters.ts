@@ -19,6 +19,32 @@ interface LocaleConfig {
 }
 
 /**
+ * Extract a locale-aware currency symbol (with spacing if provided by the locale)
+ */
+export function getCurrencySymbol(lang: SupportedLocale = 'pt'): string {
+    const { locale, currency } = getLocaleConfig(lang);
+    const formatter = new Intl.NumberFormat(locale, {
+        style: 'currency',
+        currency,
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
+    });
+
+    const parts = formatter.formatToParts(0);
+    const currencyIndex = parts.findIndex(part => part.type === 'currency');
+
+    if (currencyIndex === -1) {
+        return '';
+    }
+
+    const symbol = parts[currencyIndex]?.value ?? '';
+    const nextPart = parts[currencyIndex + 1];
+    const trailingSpace = nextPart?.type === 'literal' ? nextPart.value : '';
+
+    return `${symbol}${trailingSpace}`;
+}
+
+/**
  * Get locale configuration based on language code
  */
 export function getLocaleConfig(lang: SupportedLocale = 'pt'): LocaleConfig {

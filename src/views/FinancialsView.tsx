@@ -8,6 +8,7 @@ import { calculateBreakevenOccupancy } from '@engines/project/projectEngine';
 import type { FullModelOutput, ConsolidatedAnnualPnl } from '@domain/types';
 import { useTranslation } from '../contexts/LanguageContext';
 import type { TranslationKey } from '../i18n/translations';
+import { getCurrencySymbol } from '../utils/formatters';
 
 interface FinancialsViewProps {
   output: FullModelOutput | null;
@@ -161,7 +162,8 @@ function transformFinancialsToRows(
 }
 
 export function FinancialsView({ output }: FinancialsViewProps) {
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
+  const currencySymbol = getCurrencySymbol(language);
 
   // Transform P&L data to statement rows
   const statementRows = useMemo(() => {
@@ -229,7 +231,7 @@ export function FinancialsView({ output }: FinancialsViewProps) {
           <StatementTable
             rows={statementRows}
             columnHeaders={columnHeaders}
-            currencySymbol="$"
+            currencySymbol={currencySymbol}
             showNegativeInParentheses={true}
           />
         ) : (
