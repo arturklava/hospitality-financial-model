@@ -4,7 +4,7 @@
  * Displays construction drawdown curves and funding source distribution.
  */
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   Line,
   BarChart,
@@ -57,6 +57,27 @@ export function ConstructionView({ input, onProjectConfigChange }: ConstructionV
   const [softCosts, setSoftCosts] = useState(Math.round(totalBudget * 0.3));
   const [duration, setDuration] = useState(projectConfig.constructionDuration ?? 0);
   const [curveShape, setCurveShape] = useState<'s-curve' | 'linear'>(projectConfig.constructionCurve ?? 's-curve');
+
+  // Sync local controls when the upstream project config changes (e.g., scenario switch)
+  useEffect(() => {
+    const newBudget = projectConfig.initialInvestment ?? 0;
+    const currentTotal = hardCosts + softCosts;
+    const hardCostRatio = currentTotal > 0 ? hardCosts / currentTotal : 0.7;
+    const updatedHardCosts = Math.round(newBudget * hardCostRatio);
+    const updatedSoftCosts = Math.max(0, Math.round(newBudget - updatedHardCosts));
+
+    setHardCosts(updatedHardCosts);
+    setSoftCosts(updatedSoftCosts);
+    setDuration(projectConfig.constructionDuration ?? 0);
+    setCurveShape(projectConfig.constructionCurve ?? 's-curve');
+    // We intentionally exclude hard/soft costs to preserve the previous ratio when syncing
+    // to a newly loaded project configuration.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    projectConfig.initialInvestment,
+    projectConfig.constructionDuration,
+    projectConfig.constructionCurve,
+  ]);
 
   // Calculate total budget from hard + soft costs
   const budget = hardCosts + softCosts;
