@@ -24,10 +24,17 @@ export function InputGroup({
 }: InputGroupProps) {
   const generatedId = useId();
   const inputId = id || (label ? generatedId : undefined);
+  const helperId = helperText && !error ? `${inputId || generatedId}-helper` : undefined;
+  const errorId = error ? `${inputId || generatedId}-error` : undefined;
+  const describedBy = error ? errorId : helperId;
 
   // Clone child element to add id if it's a React element
-  const childWithId = isValidElement(children) && inputId
-    ? cloneElement(children, { id: inputId } as any)
+  const childWithId = isValidElement(children)
+    ? cloneElement(children, {
+        ...(inputId ? { id: inputId } : {}),
+        ...(describedBy ? { 'aria-describedby': describedBy } : {}),
+        ...(error ? { 'aria-invalid': true } : {}),
+      } as any)
     : children;
 
   return (
@@ -58,9 +65,11 @@ export function InputGroup({
           color: 'var(--text-secondary)',
           marginTop: '0.25rem',
           fontFamily: 'var(--font-body, "Montserrat", sans-serif)',
-        }}>
-          {helperText}
-        </div>
+        }}
+        id={helperId}
+      >
+        {helperText}
+      </div>
       )}
       {error && (
         <div style={{
@@ -68,9 +77,13 @@ export function InputGroup({
           color: 'var(--danger)',
           marginTop: '0.25rem',
           fontFamily: 'var(--font-body, "Montserrat", sans-serif)',
-        }}>
-          {error}
-        </div>
+        }}
+        role="alert"
+        aria-live="assertive"
+        id={errorId}
+      >
+        {error}
+      </div>
       )}
     </div>
   );

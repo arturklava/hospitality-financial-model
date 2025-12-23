@@ -4,12 +4,12 @@
  * Displays land acquisition configuration with payment schedule visualization.
  */
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { MasterDetailLayout } from '../components/layout/MasterDetailLayout';
 import { SectionCard } from '../components/ui/SectionCard';
 import { InputGroup } from '../components/ui/InputGroup';
 import { CurrencyInput } from '../components/inputs/CurrencyInput';
-import { getLocaleConfig } from '../utils/formatters';
+import { formatCurrency, getLocaleConfig } from '../utils/formatters';
 import type { FullModelInput, LandConfig } from '../domain/types';
 import { useTranslation } from '../contexts/LanguageContext';
 import {
@@ -28,17 +28,54 @@ interface LandViewProps {
   onProjectConfigChange?: (config: Partial<FullModelInput['projectConfig']>) => void;
 }
 
-/**
- * Formats a number as currency.
- */
-function formatCurrency(value: number, language: 'pt' | 'en'): string {
+function normalizeBarterValue(rawValue?: number | null): number | null {
+  if (rawValue === undefined || rawValue === null) return null;
+  if (!Number.isFinite(rawValue)) return null;
+  if (rawValue < 0) return null;
+  if (rawValue <= 1) return rawValue;
+  if (rawValue <= 100) return rawValue / 100;
+  return null;
+}
+
+function formatBarterDisplay(rawValue?: number | null): string {
+  const normalized = normalizeBarterValue(rawValue);
+  if (normalized === null) return '';
+  return (normalized * 100).toFixed(2);
+}
+
+function parseBarterInput(input: string): { normalized: number | null; error?: 'invalid' | 'range' } {
+  const sanitized = input.replace(',', '.').trim();
+  if (sanitized === '') {
+    return { normalized: null };
+  }
+
+  const numericValue = Number(sanitized);
+  if (!Number.isFinite(numericValue)) {
+    return { normalized: null, error: 'invalid' };
+  }
+
+  const normalized = normalizeBarterValue(numericValue);
+  if (normalized === null) {
+    return { normalized: null, error: 'range' };
+  }
+
+  return { normalized };
+}
+
+function formatYAxisCurrencyTick(value: number, language: 'pt' | 'en'): string {
   const { locale, currency } = getLocaleConfig(language);
-  return new Intl.NumberFormat(locale, {
-    style: 'currency',
-    currency: currency,
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(value);
+
+  if (Math.abs(value) >= 1000) {
+    return new Intl.NumberFormat(locale, {
+      style: 'currency',
+      currency,
+      notation: 'compact',
+      maximumFractionDigits: 1,
+      minimumFractionDigits: 0,
+    }).format(value);
+  }
+
+  return formatCurrency(value, language);
 }
 
 export function LandView({ input, onProjectConfigChange }: LandViewProps) {
@@ -50,12 +87,34 @@ export function LandView({ input, onProjectConfigChange }: LandViewProps) {
   );
 
   const selectedLand = landConfigs.find((land) => land.id === selectedLandId);
+  const [barterInputValue, setBarterInputValue] = useState<string>('');
+  const [barterError, setBarterError] = useState<string | undefined>();
+
+  useEffect(() => {
+    if (!selectedLand) {
+      setBarterInputValue('');
+      setBarterError(undefined);
+      return;
+    }
+
+    const displayValue = formatBarterDisplay(selectedLand.barterValue);
+    setBarterInputValue(displayValue);
+
+    const normalized = normalizeBarterValue(selectedLand.barterValue);
+    if (normalized === null && selectedLand.barterValue !== undefined) {
+      setBarterError(t('land.barterPercentRangeError'));
+      return;
+    }
+
+    setBarterError(undefined);
+  }, [selectedLand, t]);
 
   // Calculate payment schedule for selected land
   const paymentSchedule = useMemo(() => {
     if (!selectedLand) return [];
 
     const schedule: Array<{ month: number; monthLabel: string; amount: number; type: string }> = [];
+    const normalizedBarterValue = normalizeBarterValue(selectedLand.barterValue);
 
     // Down payment
     if (selectedLand.downPayment > 0) {
@@ -80,8 +139,8 @@ export function LandView({ input, onProjectConfigChange }: LandViewProps) {
     }
 
     // Barter payment
-    if (selectedLand.barterValue && selectedLand.barterValue > 0 && selectedLand.barterMonth !== undefined) {
-      const barterAmount = selectedLand.totalCost * selectedLand.barterValue;
+    if (normalizedBarterValue && normalizedBarterValue > 0 && selectedLand.barterMonth !== undefined) {
+      const barterAmount = selectedLand.totalCost * normalizedBarterValue;
       schedule.push({
         month: selectedLand.barterMonth,
         monthLabel: `${t('common.month')} ${selectedLand.barterMonth}`,
@@ -105,6 +164,29 @@ export function LandView({ input, onProjectConfigChange }: LandViewProps) {
     });
 
     onProjectConfigChange({ landConfigs: updatedLandConfigs });
+  };
+
+  const handleBarterChange = (value: string) => {
+    setBarterInputValue(value);
+
+    const { normalized, error } = parseBarterInput(value);
+
+    if (!selectedLand) return;
+
+    if (error === 'invalid') {
+      setBarterError(t('land.barterPercentInvalid'));
+      handleLandChange({ barterValue: undefined });
+      return;
+    }
+
+    if (error === 'range') {
+      setBarterError(t('land.barterPercentRangeError'));
+      handleLandChange({ barterValue: undefined });
+      return;
+    }
+
+    setBarterError(undefined);
+    handleLandChange({ barterValue: normalized ?? undefined });
   };
 
   const handleAddLand = () => {
@@ -293,25 +375,42 @@ export function LandView({ input, onProjectConfigChange }: LandViewProps) {
           <InputGroup
             label={t('land.barterPercent')}
             helperText={t('land.barterPercentHelper')}
+            error={barterError}
           >
-            <input
-              type="number"
-              min="0"
-              max="1"
-              step="0.01"
-              value={selectedLand.barterValue || 0}
-              onChange={(e) => handleLandChange({ barterValue: parseFloat(e.target.value) || 0 })}
-              style={{
-                width: '100%',
-                padding: '0.75rem',
-                border: '1px solid var(--border)',
-                borderRadius: 'var(--radius)',
-                fontSize: '0.9375rem',
-                backgroundColor: 'var(--surface)',
-                color: 'var(--text-primary)',
-                fontFamily: 'var(--font-body, "Montserrat", sans-serif)',
-              }}
-            />
+            <div style={{ position: 'relative' }}>
+              <input
+                type="text"
+                inputMode="decimal"
+                pattern="[0-9.,]*"
+                aria-label={t('land.barterPercent')}
+                value={barterInputValue}
+                onChange={(e) => handleBarterChange(e.target.value)}
+                aria-invalid={barterError ? 'true' : 'false'}
+                style={{
+                  width: '100%',
+                  padding: '0.75rem',
+                  paddingRight: '2.5rem',
+                  border: `1px solid ${barterError ? 'var(--danger)' : 'var(--border)'}`,
+                  borderRadius: 'var(--radius)',
+                  fontSize: '0.9375rem',
+                  backgroundColor: 'var(--surface)',
+                  color: 'var(--text-primary)',
+                  fontFamily: 'var(--font-body, "Montserrat", sans-serif)',
+                }}
+              />
+              <span
+                style={{
+                  position: 'absolute',
+                  right: '0.75rem',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  color: barterError ? 'var(--danger)' : 'var(--text-secondary)',
+                  pointerEvents: 'none',
+                }}
+              >
+                %
+              </span>
+            </div>
           </InputGroup>
 
           <InputGroup label={t('land.barterMonth')}>
@@ -348,11 +447,7 @@ export function LandView({ input, onProjectConfigChange }: LandViewProps) {
                 <YAxis
                   label={{ value: t('common.value'), angle: -90, position: 'insideLeft', offset: 10 }}
                   tick={{ fill: 'var(--text-secondary)', fontSize: 12 }}
-                  tickFormatter={(value: number) => {
-                    if (Math.abs(value) >= 1000000) return `$${(value / 1000000).toFixed(1)}M`;
-                    if (Math.abs(value) >= 1000) return `$${(value / 1000).toFixed(0)}K`;
-                    return `$${value.toFixed(0)}`;
-                  }}
+                  tickFormatter={(value: number) => formatYAxisCurrencyTick(value, language)}
                 />
                 <Tooltip
                   formatter={(value: number) => formatCurrency(value, language)}
