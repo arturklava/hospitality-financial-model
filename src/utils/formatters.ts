@@ -62,7 +62,8 @@ export function formatCurrency(
  */
 export function formatPercent(
     value: number | null | undefined,
-    lang: SupportedLocale = 'pt'
+    lang: SupportedLocale = 'pt',
+    options: Intl.NumberFormatOptions = {}
 ): string {
     if (value === null || value === undefined) return '-';
     if (Number.isNaN(value)) return '-';
@@ -74,6 +75,7 @@ export function formatPercent(
         style: 'percent',
         minimumFractionDigits: 1,
         maximumFractionDigits: 1,
+        ...options,
     }).format(value);
 }
 
