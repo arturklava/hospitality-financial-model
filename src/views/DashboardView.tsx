@@ -9,6 +9,7 @@ import { ResultsSummary } from '../components/ResultsSummary';
 import { formatCurrency } from '../utils/formatters';
 import { useTranslation } from '../contexts/LanguageContext';
 import type { ProjectKpis, DcfValuation, DebtKpi, DebtSchedule, ConsolidatedAnnualPnl, LeveredFcf, FullModelOutput, CapitalStructureConfig } from '../domain/types';
+import { NoDataState } from '../components/charts/NoDataState';
 
 interface DashboardViewProps {
   projectKpis: ProjectKpis;
@@ -20,6 +21,7 @@ interface DashboardViewProps {
   modelOutput?: FullModelOutput;
   capitalConfig?: CapitalStructureConfig;
   onNavigateToGlossary?: () => void;
+  hasActiveOperations?: boolean;
 }
 
 export function DashboardView({
@@ -32,9 +34,44 @@ export function DashboardView({
   modelOutput,
   capitalConfig,
   onNavigateToGlossary,
+  hasActiveOperations,
 }: DashboardViewProps) {
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   const [showDetailsModal, setShowDetailsModal] = useState(false);
+
+  if (hasActiveOperations === false) {
+    return (
+      <div className="dashboard-view" style={{ padding: '2rem' }}>
+        <div className="view-header" style={{ marginBottom: '2rem' }}>
+          <h1
+            style={{
+              fontSize: '2rem',
+              fontWeight: 700,
+              color: 'var(--text-primary, #1e293b)',
+              margin: 0,
+              marginBottom: '0.5rem',
+              fontFamily: 'var(--font-display, "Josefin Sans", sans-serif)',
+            }}
+          >
+            {t('dashboard.title')}
+          </h1>
+          <p
+            style={{
+              color: 'var(--text-secondary, #64748b)',
+              fontSize: '0.9375rem',
+              margin: 0,
+              fontFamily: 'var(--font-body, "Montserrat", sans-serif)',
+            }}
+          >
+            {language === 'pt'
+              ? 'Nenhuma operação ativa. Ative ou adicione uma operação para visualizar o dashboard.'
+              : 'No active operations. Activate or add an operation to view the dashboard.'}
+          </p>
+        </div>
+        <NoDataState />
+      </div>
+    );
+  }
 
   // Calculate Peak Equity (maximum cumulative equity invested)
   // This is the most negative cumulative cash flow from ownerLeveredCashFlows

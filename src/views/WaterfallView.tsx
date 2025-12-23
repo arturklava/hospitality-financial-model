@@ -7,6 +7,7 @@ import { InputGroup } from '../components/ui/InputGroup';
 import { PercentageSlider } from '../components/inputs/PercentageSlider';
 import { PercentageInput } from '../components/inputs/PercentageInput';
 import { useTranslation } from '../contexts/LanguageContext';
+import { NoDataState } from '../components/charts/NoDataState';
 
 // Extracted styles to reduce inline style noise
 const styles = {
@@ -137,10 +138,19 @@ interface WaterfallViewProps {
     hasClawback: boolean;
     waterfallConfig?: WaterfallConfig;
     onWaterfallConfigChange?: (config: WaterfallConfig) => void;
+    hasActiveOperations?: boolean;
 }
 
-export function WaterfallView({ waterfall, waterfallConfig, onWaterfallConfigChange }: WaterfallViewProps) {
+export function WaterfallView({ waterfall, waterfallConfig, onWaterfallConfigChange, hasActiveOperations }: WaterfallViewProps) {
     const { t } = useTranslation();
+
+    if (hasActiveOperations === false) {
+        return (
+            <div className="waterfall-view" style={styles.container}>
+                <NoDataState />
+            </div>
+        );
+    }
 
     const handleTierUpdate = (tierId: string, updates: Partial<WaterfallTier>) => {
         if (!waterfallConfig || !onWaterfallConfigChange) return;

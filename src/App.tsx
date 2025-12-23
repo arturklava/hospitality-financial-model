@@ -145,6 +145,8 @@ function App() {
     );
   }
 
+  const hasActiveOperations = input.scenario.operations.some(op => op.isActive !== false);
+
   const handleScenarioNameChange = (name: string) => {
     updateInput({
       ...input,
@@ -190,6 +192,7 @@ function App() {
               modelOutput={modelOutput}
               capitalConfig={input.capitalConfig}
               onNavigateToGlossary={() => setActiveView('glossary')}
+              hasActiveOperations={hasActiveOperations}
             />
           </PageTransition>
         );
@@ -239,6 +242,7 @@ function App() {
               waterfall={modelOutput.waterfall}
               hasClawback={input.waterfallConfig.tiers?.some(t => t.enableCatchUp) ?? false}
               waterfallConfig={input.waterfallConfig}
+              hasActiveOperations={hasActiveOperations}
               onWaterfallConfigChange={(config) => {
                 updateInput({
                   ...input,
