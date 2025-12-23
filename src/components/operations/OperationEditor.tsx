@@ -5,6 +5,7 @@ import { OperationDriversForm } from './forms/OperationDriversForm';
 import { BusinessModelForm } from './forms/BusinessModelForm';
 import { SeasonalityChart } from './SeasonalityChart';
 import { useTranslation } from '../../contexts/LanguageContext';
+import { getOperationTypeLabel } from './operationTypes';
 
 interface OperationEditorProps {
   operation: OperationConfig;
@@ -49,7 +50,7 @@ export function OperationEditor({ operation, onChange }: OperationEditorProps) {
             />
           </InputGroup>
 
-          <InputGroup label="Type">
+          <InputGroup label={t('common.type')}>
             <div
               style={{
                 padding: '0.75rem',
@@ -60,10 +61,7 @@ export function OperationEditor({ operation, onChange }: OperationEditorProps) {
                 color: 'var(--text-secondary)',
               }}
             >
-              {operation.operationType
-                .split('_')
-                .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-                .join(' ')}
+              {getOperationTypeLabel(t, operation.operationType)}
             </div>
           </InputGroup>
         </div>

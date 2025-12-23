@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import type { OperationConfig, OwnershipModel } from '../../domain/types';
 import { Building2, Hotel, Home, UtensilsCrossed, Waves, Trophy, ShoppingBag, Boxes, Heart, Users, Trash2 } from 'lucide-react';
+import { useTranslation } from '../../contexts/LanguageContext';
+import { getOperationTypeLabel, operationTypeOptions } from './operationTypes';
 
 interface OperationListProps {
   operations: OperationConfig[];
@@ -35,10 +37,6 @@ export const getOperationIcon = (operationType: string) => {
   }
 };
 
-const getOperationTypeLabel = (type: string): string => {
-  return type.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-};
-
 const getOwnershipModelLabel = (model?: OwnershipModel): string => {
   if (!model || model === 'BUILD_AND_OPERATE') return 'Operate';
   if (model === 'BUILD_AND_LEASE_FIXED') return 'Lease (Fixed)';
@@ -54,19 +52,10 @@ export function OperationList({
   onAddAsset,
   onRemoveOperation,
 }: OperationListProps) {
+  const { t } = useTranslation();
   const [showAddDropdown, setShowAddDropdown] = useState(false);
 
-  const operationTypes: Array<{ value: string; label: string }> = [
-    { value: 'HOTEL', label: 'Hotel' },
-    { value: 'VILLAS', label: 'Villas' },
-    { value: 'RESTAURANT', label: 'Restaurant' },
-    { value: 'BEACH_CLUB', label: 'Beach Club' },
-    { value: 'RACQUET', label: 'Racquet' },
-    { value: 'RETAIL', label: 'Retail' },
-    { value: 'FLEX', label: 'Flex' },
-    { value: 'WELLNESS', label: 'Wellness' },
-    { value: 'SENIOR_LIVING', label: 'Senior Living' },
-  ];
+  const statusLabel = (active: boolean) => (active ? t('common.active') : t('common.inactive'));
 
   return (
     <div
@@ -118,7 +107,7 @@ export function OperationList({
               }}
             >
               <span>+</span>
-              <span>Add Asset</span>
+              <span>{t('operations.addAsset')}</span>
             </button>
             {showAddDropdown && (
               <div
@@ -137,8 +126,9 @@ export function OperationList({
                   overflowY: 'auto',
                 }}
               >
-                {operationTypes.map((type) => {
+                {operationTypeOptions.map((type) => {
                   const Icon = getOperationIcon(type.value);
+                  const label = t(type.translationKey);
                   return (
                     <button
                       key={type.value}
@@ -168,7 +158,7 @@ export function OperationList({
                       }}
                     >
                       <Icon size={18} style={{ color: 'var(--text-secondary)' }} />
-                      <span>{type.label}</span>
+                      <span>{label}</span>
                     </button>
                   );
                 })}
@@ -195,7 +185,7 @@ export function OperationList({
               fontSize: '0.875rem',
             }}
           >
-            No assets configured
+            {t('operations.noOperations')}
           </div>
         ) : (
           operations.map((op) => {
@@ -261,9 +251,9 @@ export function OperationList({
                             width: '8px',
                             height: '8px',
                             borderRadius: '50%',
-                            backgroundColor: isActive
-                              ? isSelected
-                                ? 'rgba(255, 255, 255, 0.9)'
+                          backgroundColor: isActive
+                            ? isSelected
+                              ? 'rgba(255, 255, 255, 0.9)'
                                 : 'var(--success)'
                               : isSelected
                                 ? 'rgba(255, 255, 255, 0.4)'
@@ -273,7 +263,7 @@ export function OperationList({
                               ? '0 0 0 2px rgba(76, 175, 80, 0.2)'
                               : 'none',
                           }}
-                          title={isActive ? 'Active' : 'Inactive'}
+                          title={statusLabel(isActive)}
                         />
                         <div
                           style={{
@@ -333,7 +323,7 @@ export function OperationList({
                         marginBottom: '0.5rem',
                       }}
                     >
-                      {getOperationTypeLabel(op.operationType)}
+                      {getOperationTypeLabel(t, op.operationType)}
                     </div>
                     <div
                       style={{
@@ -357,7 +347,7 @@ export function OperationList({
                           textTransform: 'uppercase',
                         }}
                       >
-                        {isActive ? 'Active' : 'Inactive'}
+                        {statusLabel(isActive)}
                       </span>
                       <span
                         style={{
