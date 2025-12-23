@@ -38,17 +38,23 @@ interface AuthContextType {
   exitGuestMode: () => void;
 }
 
+const GUEST_STORAGE_KEY = 'hfm_is_guest';
+
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
-  const [isGuest, setIsGuest] = useState(false);
+  const [isGuest, setIsGuest] = useState<boolean>(() => localStorage.getItem(GUEST_STORAGE_KEY) === 'true');
 
   useEffect(() => {
     // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        localStorage.removeItem(GUEST_STORAGE_KEY);
+        setIsGuest(false);
+      }
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
@@ -74,9 +80,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
         }
         // Exit guest mode when user signs in
+        localStorage.removeItem(GUEST_STORAGE_KEY);
         setIsGuest(false);
       }
-      
+
+      if (session?.user) {
+        localStorage.removeItem(GUEST_STORAGE_KEY);
+        setIsGuest(false);
+      }
+
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
@@ -106,6 +118,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = async () => {
     await supabase.auth.signOut();
     // Exit guest mode on sign out
+    localStorage.removeItem(GUEST_STORAGE_KEY);
     setIsGuest(false);
   };
 
@@ -117,6 +130,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    * Users can sign in later to migrate to cloud storage.
    */
   const signInAsGuest = () => {
+    localStorage.setItem(GUEST_STORAGE_KEY, 'true');
     setIsGuest(true);
   };
 
@@ -124,6 +138,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    * Exits guest mode, returning to the authentication flow.
    */
   const exitGuestMode = () => {
+    localStorage.removeItem(GUEST_STORAGE_KEY);
     setIsGuest(false);
   };
 
