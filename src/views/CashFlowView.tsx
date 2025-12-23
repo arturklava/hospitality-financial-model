@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { FullModelOutput, FullModelInput, OperationConfig } from '../domain/types';
 import { OperationMultiSelect } from '../components/filters/OperationMultiSelect';
 import { StatementTable } from '../components/financials/StatementTable';
@@ -16,6 +16,23 @@ export function CashFlowView({ operations, modelOutput, input }: CashFlowViewPro
   const [selectedOperationIds, setSelectedOperationIds] = useState<Set<string>>(
     new Set(operations.map(op => op.id))
   );
+
+  // Keep selection in sync with operations (preserve existing selections, add new active ones)
+  useEffect(() => {
+    const activeOperationIds = operations
+      .filter(op => op.isActive ?? true)
+      .map(op => op.id);
+
+    setSelectedOperationIds((prevSelection) => {
+      const preservedSelections = Array.from(prevSelection).filter((id) =>
+        activeOperationIds.includes(id)
+      );
+
+      const newlyActive = activeOperationIds.filter((id) => !prevSelection.has(id));
+
+      return new Set([...preservedSelections, ...newlyActive]);
+    });
+  }, [operations]);
 
   // Generate comprehensive cash flow statement with 3 sections (Operating, Investing, Financing)
   const statementRows = useMemo(() => {
@@ -45,6 +62,8 @@ export function CashFlowView({ operations, modelOutput, input }: CashFlowViewPro
 
   // Determine currency symbol based on language
   const currencySymbol = language === 'pt' ? 'R$ ' : '$ ';
+
+  const hasActiveOperations = operations.some(op => op.isActive ?? true);
 
   // Transform rows to localized labels
   const localizedRows = useMemo(() => {
@@ -158,7 +177,7 @@ export function CashFlowView({ operations, modelOutput, input }: CashFlowViewPro
               }}
             >
               <p style={{ margin: 0, fontSize: '0.9375rem' }}>
-                {t('common.selectOperation')}
+                {hasActiveOperations ? t('common.selectOperation') : t('common.noActiveOperations')}
               </p>
             </div>
           )}

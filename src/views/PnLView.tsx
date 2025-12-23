@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { FullModelOutput, OperationConfig } from '../domain/types';
 import { OperationFilter } from '../components/filters/OperationFilter';
 import { StatementTable, type StatementRow } from '../components/financials/StatementTable';
@@ -344,6 +344,23 @@ export function PnLView({ operations, modelOutput }: PnLViewProps) {
     new Set(operations.map(op => op.id))
   );
 
+  // Keep selection aligned with operations (preserve intersection, add new active operations)
+  useEffect(() => {
+    const activeOperationIds = operations
+      .filter(op => op.isActive ?? true)
+      .map(op => op.id);
+
+    setSelectedOperationIds((prevSelection) => {
+      const preservedSelections = Array.from(prevSelection).filter((id) =>
+        activeOperationIds.includes(id)
+      );
+
+      const newlyActive = activeOperationIds.filter((id) => !prevSelection.has(id));
+
+      return new Set([...preservedSelections, ...newlyActive]);
+    });
+  }, [operations]);
+
   // Filter and aggregate P&L for selected operations
   const filteredPnl = useMemo(() => {
     if (selectedOperationIds.size === 0) {
@@ -369,6 +386,8 @@ export function PnLView({ operations, modelOutput }: PnLViewProps) {
 
   // Determine currency symbol based on language
   const currencySymbol = language === 'pt' ? 'R$ ' : '$ ';
+
+  const hasActiveOperations = operations.some(op => op.isActive ?? true);
 
   return (
     <div
@@ -445,7 +464,7 @@ export function PnLView({ operations, modelOutput }: PnLViewProps) {
               }}
             >
               <p style={{ margin: 0, fontSize: '0.9375rem' }}>
-                {t('common.selectOperation')}
+                {hasActiveOperations ? t('common.selectOperation') : t('common.noActiveOperations')}
               </p>
             </div>
           )}
