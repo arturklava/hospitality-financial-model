@@ -4,7 +4,7 @@
  * Displays land acquisition configuration with payment schedule visualization.
  */
 
-import { useState, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { MasterDetailLayout } from '../components/layout/MasterDetailLayout';
 import { SectionCard } from '../components/ui/SectionCard';
 import { InputGroup } from '../components/ui/InputGroup';
@@ -41,6 +41,14 @@ function formatCurrency(value: number, language: 'pt' | 'en'): string {
   }).format(value);
 }
 
+const clampPercentage = (value: number) => Math.min(Math.max(value, 0), 1);
+
+const normalizePercentageValue = (value: number) => {
+  if (Number.isNaN(value)) return 0;
+  const normalized = value > 1 ? value / 100 : value;
+  return clampPercentage(normalized);
+};
+
 export function LandView({ input, onProjectConfigChange }: LandViewProps) {
   const projectConfig = input.projectConfig;
   const landConfigs = projectConfig.landConfigs || [];
@@ -48,8 +56,13 @@ export function LandView({ input, onProjectConfigChange }: LandViewProps) {
   const [selectedLandId, setSelectedLandId] = useState<string | null>(
     landConfigs.length > 0 ? landConfigs[0].id : null
   );
+  const [barterPercentError, setBarterPercentError] = useState<string | null>(null);
 
   const selectedLand = landConfigs.find((land) => land.id === selectedLandId);
+
+  useEffect(() => {
+    setBarterPercentError(null);
+  }, [selectedLandId]);
 
   // Calculate payment schedule for selected land
   const paymentSchedule = useMemo(() => {
@@ -80,8 +93,9 @@ export function LandView({ input, onProjectConfigChange }: LandViewProps) {
     }
 
     // Barter payment
-    if (selectedLand.barterValue && selectedLand.barterValue > 0 && selectedLand.barterMonth !== undefined) {
-      const barterAmount = selectedLand.totalCost * selectedLand.barterValue;
+    const barterValue = clampPercentage(selectedLand.barterValue ?? 0);
+    if (barterValue > 0 && selectedLand.barterMonth !== undefined) {
+      const barterAmount = selectedLand.totalCost * barterValue;
       schedule.push({
         month: selectedLand.barterMonth,
         monthLabel: `${t('common.month')} ${selectedLand.barterMonth}`,
@@ -97,14 +111,40 @@ export function LandView({ input, onProjectConfigChange }: LandViewProps) {
   const handleLandChange = (updates: Partial<LandConfig>) => {
     if (!selectedLand || !onProjectConfigChange) return;
 
+    const normalizedUpdates: Partial<LandConfig> = { ...updates };
+
+    if (updates.barterValue !== undefined) {
+      const normalizedValue = normalizePercentageValue(updates.barterValue);
+      normalizedUpdates.barterValue = normalizedValue;
+    }
+
     const updatedLandConfigs = landConfigs.map((land) => {
       if (land.id === selectedLand.id) {
-        return { ...land, ...updates };
+        return { ...land, ...normalizedUpdates };
       }
       return land;
     });
 
     onProjectConfigChange({ landConfigs: updatedLandConfigs });
+  };
+
+  const handleBarterPercentChange = (rawValue: string) => {
+    const parsedValue = parseFloat(rawValue);
+
+    if (Number.isNaN(parsedValue)) {
+      setBarterPercentError(null);
+      handleLandChange({ barterValue: 0 });
+      return;
+    }
+
+    if (parsedValue < 0 || parsedValue > 100) {
+      setBarterPercentError(t('land.barterPercentError'));
+      return;
+    }
+
+    setBarterPercentError(null);
+    const normalizedValue = normalizePercentageValue(parsedValue);
+    handleLandChange({ barterValue: normalizedValue });
   };
 
   const handleAddLand = () => {
@@ -292,19 +332,22 @@ export function LandView({ input, onProjectConfigChange }: LandViewProps) {
 
           <InputGroup
             label={t('land.barterPercent')}
-            helperText={t('land.barterPercentHelper')}
+            helperText={barterPercentError ?? t('land.barterPercentHelper')}
           >
             <input
               type="number"
               min="0"
-              max="1"
-              step="0.01"
-              value={selectedLand.barterValue || 0}
-              onChange={(e) => handleLandChange({ barterValue: parseFloat(e.target.value) || 0 })}
+              max="100"
+              step="0.1"
+              aria-invalid={Boolean(barterPercentError)}
+              value={selectedLand ? Number(((selectedLand.barterValue ?? 0) * 100).toFixed(2)) : 0}
+              onChange={(e) => handleBarterPercentChange(e.target.value)}
               style={{
                 width: '100%',
                 padding: '0.75rem',
-                border: '1px solid var(--border)',
+                border: barterPercentError
+                  ? '1px solid var(--danger, #e53e3e)'
+                  : '1px solid var(--border)',
                 borderRadius: 'var(--radius)',
                 fontSize: '0.9375rem',
                 backgroundColor: 'var(--surface)',
