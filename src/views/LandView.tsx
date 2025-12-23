@@ -74,7 +74,7 @@ export function LandView({ input, onProjectConfigChange }: LandViewProps) {
           month: installment.month,
           monthLabel: `${t('common.month')} ${installment.month}`,
           amount: installment.amount,
-          type: 'Installment', // TODO: Add key for installment if missing, or use common
+          type: t('land.installment'),
         });
       });
     }
@@ -355,14 +355,17 @@ export function LandView({ input, onProjectConfigChange }: LandViewProps) {
                   }}
                 />
                 <Tooltip
-                  formatter={(value: number) => formatCurrency(value, language)}
+                  formatter={(value: number, _name, entry) => [
+                    formatCurrency(value, language),
+                    entry?.payload?.type || t('land.paymentAmount'),
+                  ]}
                   contentStyle={{
                     backgroundColor: 'white',
                     border: '1px solid var(--border)',
                     borderRadius: 'var(--radius)',
                   }}
                 />
-                <Legend />
+                <Legend formatter={() => t('land.paymentAmount')} />
                 <Bar dataKey="amount" fill="var(--primary)" name={t('land.paymentAmount')} />
               </BarChart>
             </ResponsiveContainer>
