@@ -97,6 +97,7 @@ export const translations = {
         'common.select': 'Selecionar',
         'common.average': 'Média',
         'common.selectOperation': 'Selecione uma Operação',
+        'common.noActiveOperations': 'Nenhuma operação ativa disponível',
 
         'common.steps': 'Passos',
         'common.base': 'Base',
@@ -845,6 +846,7 @@ export const translations = {
         'common.select': 'Select',
         'common.average': 'Average',
         'common.selectOperation': 'Select Operation',
+        'common.noActiveOperations': 'No active operations available',
 
         'common.steps': 'Steps',
         'common.base': 'Base',
