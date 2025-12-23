@@ -4,6 +4,7 @@ import { OperationFilter } from '../components/filters/OperationFilter';
 import { StatementTable, type StatementRow } from '../components/financials/StatementTable';
 import { filterAndAggregatePnl } from '../engines/analytics/statementGenerator';
 import { useTranslation } from '../contexts/LanguageContext';
+import { getCurrencySymbol } from '../utils/formatters';
 
 interface PnLViewProps {
   operations: OperationConfig[];
@@ -368,7 +369,7 @@ export function PnLView({ operations, modelOutput }: PnLViewProps) {
   }, [filteredPnl, modelOutput.scenario.startYear, t]);
 
   // Determine currency symbol based on language
-  const currencySymbol = language === 'pt' ? 'R$ ' : '$ ';
+  const currencySymbol = getCurrencySymbol(language);
 
   return (
     <div

@@ -4,6 +4,7 @@ import { OperationMultiSelect } from '../components/filters/OperationMultiSelect
 import { StatementTable } from '../components/financials/StatementTable';
 import { generateCashFlowStatementRows } from '../engines/analytics/statementGenerator';
 import { useTranslation } from '../contexts/LanguageContext';
+import { getCurrencySymbol } from '../utils/formatters';
 
 interface CashFlowViewProps {
   operations: OperationConfig[];
@@ -44,7 +45,7 @@ export function CashFlowView({ operations, modelOutput, input }: CashFlowViewPro
   }, [statementRows, modelOutput.scenario.startYear, modelOutput.scenario.horizonYears, t]);
 
   // Determine currency symbol based on language
-  const currencySymbol = language === 'pt' ? 'R$ ' : '$ ';
+  const currencySymbol = getCurrencySymbol(language);
 
   // Transform rows to localized labels
   const localizedRows = useMemo(() => {
