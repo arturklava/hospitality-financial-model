@@ -19,6 +19,7 @@ import type { CapitalStructureConfig } from '../../domain/types';
 import { NoDataState } from './NoDataState';
 import { formatCurrency } from '../../utils/formatters';
 import { normalizeCapitalData } from '../../domain/capitalHelpers';
+import { useTranslation } from '../../contexts/LanguageContext';
 
 interface CapitalStackChartProps {
   capitalConfig: CapitalStructureConfig;
@@ -26,6 +27,8 @@ interface CapitalStackChartProps {
 }
 
 export function CapitalStackChart({ capitalConfig }: CapitalStackChartProps) {
+  const { t } = useTranslation();
+
   // Normalize capital data to ensure safe handling of undefined/null/empty debtTranches
   const normalized = normalizeCapitalData(capitalConfig);
 
@@ -55,7 +58,13 @@ export function CapitalStackChart({ capitalConfig }: CapitalStackChartProps) {
     Number.isFinite(totalCapital);
 
   if (!hasValidData) {
-    return <NoDataState height={300} message="No capital data available" description="Please configure the capital stack to see the breakdown." />;
+    return (
+      <NoDataState
+        height={300}
+        message={t('charts.capital.noDataTitle')}
+        description={t('charts.capital.noDataDescription')}
+      />
+    );
   }
 
   // Semantic color palette (v3.1)

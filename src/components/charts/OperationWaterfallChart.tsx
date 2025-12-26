@@ -19,6 +19,7 @@ import type { OperationConfig, FullModelOutput } from '../../domain/types';
 import { formatCurrency } from '../../utils/formatters';
 import { NoDataState } from './NoDataState';
 import { runScenarioEngine } from '../../engines/scenario/scenarioEngine';
+import { useTranslation } from '../../contexts/LanguageContext';
 
 interface OperationWaterfallChartProps {
   operation: OperationConfig;
@@ -70,20 +71,22 @@ function calculateEstimatedWaterfall(_operation: OperationConfig): { revenue: nu
   return null;
 }
 
-export function OperationWaterfallChart({ 
-  operation, 
-  modelOutput, 
-  height = 300 
+export function OperationWaterfallChart({
+  operation,
+  modelOutput,
+  height = 300
 }: OperationWaterfallChartProps) {
-  const waterfallData = getOperationYear1Pnl(operation, modelOutput) 
+  const { t } = useTranslation();
+
+  const waterfallData = getOperationYear1Pnl(operation, modelOutput)
     ?? calculateEstimatedWaterfall(operation);
-  
+
   if (!waterfallData) {
     return (
-      <NoDataState 
+      <NoDataState
         height={height}
-        message="No Waterfall Data Available"
-        description="Run the model to see revenue breakdown (Revenue → Dept Expenses → Undistributed → NOI)."
+        message={t('charts.waterfall.noDataTitle')}
+        description={t('charts.waterfall.noDataDescription')}
       />
     );
   }
