@@ -12,6 +12,7 @@
 
 import { Sparkline } from './Sparkline';
 import type { ReactNode } from 'react';
+import { formatCurrency, type SupportedLocale } from '../../utils/formatters';
 
 export interface StatCardProps {
   // Header
@@ -34,6 +35,11 @@ export interface StatCardProps {
   size?: 'default' | 'large'; // Card size variant
   variant?: 'default' | 'hero' | 'minimal'; // Card style variant (v4.2)
   className?: string;
+
+  // Localization
+  locale?: SupportedLocale;
+  missingValueLabel?: string;
+  emptyStateLabel?: string;
 }
 
 /**
@@ -69,26 +75,30 @@ function getTrendColor(trend?: 'up' | 'down' | 'neutral'): string {
 /**
  * Formats numeric value with default currency formatter.
  */
-function formatValue(value: string | number, formatter?: (val: number) => string): string {
+function formatValue(
+  value: string | number,
+  formatter: ((val: number) => string) | undefined,
+  locale: SupportedLocale,
+  missingValueLabel: string,
+): string {
   if (typeof value === 'string') return value;
 
   // Hard/Defensive checks for invalid numbers
-  if (value === null || value === undefined) return '-';
-  if (Number.isNaN(value)) return 'N/A';
-  if (!Number.isFinite(value)) return 'N/A'; // Or use infinity symbol if preferred, but user requested N/A for safety
+  if (value === null || value === undefined) return missingValueLabel;
+  if (Number.isNaN(value)) return missingValueLabel;
+  if (!Number.isFinite(value)) return missingValueLabel; // Or use infinity symbol if preferred, but user requested N/A for safety
 
-  if (formatter) return formatter(value);
+  if (formatter) {
+    const formatted = formatter(value);
+    return formatted === '-' ? missingValueLabel : formatted;
+  }
 
   // Default: currency formatter (fallback to safe Intl)
   try {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(value);
+    const formatted = formatCurrency(value, locale, { fallbackText: missingValueLabel });
+    return formatted === '-' ? missingValueLabel : formatted;
   } catch (e) {
-    return 'Err';
+    return missingValueLabel;
   }
 }
 
@@ -106,10 +116,13 @@ export function StatCard({
   size = 'default',
   variant = 'default',
   className = '',
+  locale = 'pt',
+  missingValueLabel = '-',
+  emptyStateLabel = 'No trend data',
 }: StatCardProps) {
   const statusColor = getStatusColor(status);
   const trendColor = getTrendColor(trend);
-  const formattedValue = formatValue(value, valueFormatter);
+  const formattedValue = formatValue(value, valueFormatter, locale, missingValueLabel);
 
   // Size variants
   const isLarge = size === 'large';
@@ -241,7 +254,7 @@ export function StatCard({
               color: 'var(--text-muted, #94a3b8)',
               fontSize: '0.75rem',
             }}>
-              No trend data
+              {emptyStateLabel}
             </div>
           )}
 

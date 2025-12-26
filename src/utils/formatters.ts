@@ -18,6 +18,10 @@ interface LocaleConfig {
     currency: string;
 }
 
+interface FormatterOptions {
+    fallbackText?: string;
+}
+
 /**
  * Extract a locale-aware currency symbol (with spacing if provided by the locale)
  */
@@ -65,10 +69,13 @@ export function getLocaleConfig(lang: SupportedLocale = 'pt'): LocaleConfig {
  */
 export function formatCurrency(
     value: number | null | undefined,
-    lang: SupportedLocale = 'pt'
+    lang: SupportedLocale = 'pt',
+    options: FormatterOptions = {}
 ): string {
-    if (value === null || value === undefined) return '-';
-    if (Number.isNaN(value)) return '-';
+    const { fallbackText = '-' } = options;
+
+    if (value === null || value === undefined) return fallbackText;
+    if (Number.isNaN(value)) return fallbackText;
     if (!Number.isFinite(value)) return value > 0 ? '∞' : '-∞';
 
     const { locale, currency } = getLocaleConfig(lang);
@@ -89,10 +96,12 @@ export function formatCurrency(
 export function formatPercent(
     value: number | null | undefined,
     lang: SupportedLocale = 'pt',
-    options: Intl.NumberFormatOptions = {}
+    options: Intl.NumberFormatOptions & FormatterOptions = {}
 ): string {
-    if (value === null || value === undefined) return '-';
-    if (Number.isNaN(value)) return '-';
+    const { fallbackText = '-', ...formatOptions } = options;
+
+    if (value === null || value === undefined) return fallbackText;
+    if (Number.isNaN(value)) return fallbackText;
     if (!Number.isFinite(value)) return value > 0 ? '∞' : '-∞';
 
     const { locale } = getLocaleConfig(lang);
@@ -101,7 +110,7 @@ export function formatPercent(
         style: 'percent',
         minimumFractionDigits: 1,
         maximumFractionDigits: 1,
-        ...options,
+        ...formatOptions,
     }).format(value);
 }
 
@@ -112,10 +121,13 @@ export function formatPercent(
  */
 export function formatMultiplier(
     value: number | null | undefined,
-    lang: SupportedLocale = 'pt'
+    lang: SupportedLocale = 'pt',
+    options: FormatterOptions = {}
 ): string {
-    if (value === null || value === undefined) return '-';
-    if (Number.isNaN(value)) return '-';
+    const { fallbackText = '-' } = options;
+
+    if (value === null || value === undefined) return fallbackText;
+    if (Number.isNaN(value)) return fallbackText;
     if (!Number.isFinite(value)) return value > 0 ? '∞' : '-∞';
 
     const { locale } = getLocaleConfig(lang);
@@ -134,10 +146,13 @@ export function formatMultiplier(
 export function formatNumber(
     value: number | null | undefined,
     decimals: number = 2,
-    lang: SupportedLocale = 'pt'
+    lang: SupportedLocale = 'pt',
+    options: FormatterOptions = {}
 ): string {
-    if (value === null || value === undefined) return '-';
-    if (Number.isNaN(value)) return '-';
+    const { fallbackText = '-' } = options;
+
+    if (value === null || value === undefined) return fallbackText;
+    if (Number.isNaN(value)) return fallbackText;
     if (!Number.isFinite(value)) return value > 0 ? '∞' : '-∞';
 
     const { locale } = getLocaleConfig(lang);

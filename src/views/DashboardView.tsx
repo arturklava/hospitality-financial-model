@@ -6,7 +6,7 @@ import { StatCard } from '../components/dashboard/StatCard';
 import { BentoGrid } from '../components/layout/BentoGrid';
 import { WaterfallSummary } from '../components/dashboard/WaterfallSummary';
 import { ResultsSummary } from '../components/ResultsSummary';
-import { formatCurrency } from '../utils/formatters';
+import { formatCurrency, formatPercent, formatMultiplier } from '../utils/formatters';
 import { useTranslation } from '../contexts/LanguageContext';
 import type { ProjectKpis, DcfValuation, DebtKpi, DebtSchedule, ConsolidatedAnnualPnl, LeveredFcf, FullModelOutput, CapitalStructureConfig } from '../domain/types';
 import { NoDataState } from '../components/charts/NoDataState';
@@ -38,8 +38,11 @@ export function DashboardView({
   hasActiveOperations,
   onNavigateToOperations,
 }: DashboardViewProps) {
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   const [showDetailsModal, setShowDetailsModal] = useState(false);
+
+  const missingValueLabel = t('common.notAvailable');
+  const emptyTrendLabel = t('dashboard.noTrendData');
 
   if (hasActiveOperations === false) {
     return (
@@ -97,16 +100,10 @@ export function DashboardView({
     peakEquity = Math.abs(peakEquity); // Convert to positive for display
   }
 
-  // Format IRR
-  const formatIRR = (irr: number | null): string => {
-    if (irr === null || !Number.isFinite(irr)) return 'N/A';
-    return `${(irr * 100).toFixed(1)}%`;
-  };
-
-  // Format Equity Multiple
-  const formatEquityMultiple = (multiple: number): string => {
-    return `${multiple.toFixed(2)}x`;
-  };
+  const formattedNpv = formatCurrency(projectKpis.npv, language, { fallbackText: missingValueLabel });
+  const formattedPeakEquity = formatCurrency(peakEquity, language, { fallbackText: missingValueLabel });
+  const formattedIrr = formatPercent(projectKpis.unleveredIrr, language, { fallbackText: missingValueLabel });
+  const formattedEquityMultiple = formatMultiplier(projectKpis.equityMultiple, language, { fallbackText: missingValueLabel });
 
   return (
     <>
@@ -151,11 +148,13 @@ export function DashboardView({
             <ErrorBoundary variant="widget">
               <StatCard
                 title={t('financial.npv')}
-                value={projectKpis.npv}
-                valueFormatter={formatCurrency}
+                value={formattedNpv}
                 status={projectKpis.npv > 0 ? 'success' : 'danger'}
                 metadata={t('dashboard.dcfValuation')}
                 variant="hero"
+                locale={language}
+                missingValueLabel={missingValueLabel}
+                emptyStateLabel={emptyTrendLabel}
               />
             </ErrorBoundary>
           </BentoGrid.Item>
@@ -164,10 +163,13 @@ export function DashboardView({
             <ErrorBoundary variant="widget">
               <StatCard
                 title={t('financial.irr')}
-                value={formatIRR(projectKpis.unleveredIrr)}
+                value={formattedIrr}
                 status={projectKpis.unleveredIrr && projectKpis.unleveredIrr > 0.1 ? 'success' : 'neutral'}
                 metadata={t('dashboard.unleveredIrr')}
                 variant="hero"
+                locale={language}
+                missingValueLabel={missingValueLabel}
+                emptyStateLabel={emptyTrendLabel}
               />
             </ErrorBoundary>
           </BentoGrid.Item>
@@ -177,10 +179,13 @@ export function DashboardView({
             <ErrorBoundary variant="widget">
               <StatCard
                 title={t('financial.equityMultiple')}
-                value={formatEquityMultiple(projectKpis.equityMultiple)}
+                value={formattedEquityMultiple}
                 status={projectKpis.equityMultiple > 1.5 ? 'success' : projectKpis.equityMultiple > 1.0 ? 'warning' : 'danger'}
                 metadata={t('financial.equityMultiple')}
                 variant="minimal"
+                locale={language}
+                missingValueLabel={missingValueLabel}
+                emptyStateLabel={emptyTrendLabel}
               />
             </ErrorBoundary>
           </BentoGrid.Item>
@@ -189,10 +194,12 @@ export function DashboardView({
             <ErrorBoundary variant="widget">
               <StatCard
                 title={t('financial.peakEquity')}
-                value={peakEquity}
-                valueFormatter={formatCurrency}
+                value={formattedPeakEquity}
                 metadata={t('dashboard.maxEquityInvested')}
                 variant="minimal"
+                locale={language}
+                missingValueLabel={missingValueLabel}
+                emptyStateLabel={emptyTrendLabel}
               />
             </ErrorBoundary>
           </BentoGrid.Item>
