@@ -16,6 +16,15 @@ import { translations, type TranslationKey } from '../../i18n/translations';
 import { buildBeachClubConfig, buildFlexConfig } from '../helpers/buildOperationConfig';
 
 const noop = () => {};
+const baseProps = {
+  selectedIds: new Set<string>(),
+  onToggleSelect: noop,
+  onSelectAll: noop,
+  onClearSelection: noop,
+  onBulkActivate: noop,
+  onBulkDeactivate: noop,
+  onBulkDelete: noop,
+};
 
 describe('operation type localization', () => {
   beforeEach(() => {
@@ -38,6 +47,7 @@ describe('operation type localization', () => {
           operations={operations}
           selectedOperationId={null}
           onSelectOperation={noop}
+          {...baseProps}
         />
       </LanguageProvider>
     );
@@ -55,6 +65,7 @@ describe('operation type localization', () => {
           operations={operations}
           selectedOperationId={null}
           onSelectOperation={noop}
+          {...baseProps}
         />
       </LanguageProvider>
     );

@@ -7,7 +7,14 @@ import { getOperationTypeLabel, operationTypeOptions } from './operationTypes';
 interface OperationListProps {
   operations: OperationConfig[];
   selectedOperationId: string | null;
+  selectedIds: Set<string>;
   onSelectOperation: (operationId: string) => void;
+  onToggleSelect: (operationId: string) => void;
+  onSelectAll: () => void;
+  onClearSelection: () => void;
+  onBulkActivate: () => void;
+  onBulkDeactivate: () => void;
+  onBulkDelete: () => void;
   onAddAsset?: (operationType?: string) => void;
   onRemoveOperation?: (id: string) => void;
 }
@@ -48,7 +55,14 @@ const getOwnershipModelLabel = (model?: OwnershipModel): string => {
 export function OperationList({
   operations,
   selectedOperationId,
+  selectedIds,
   onSelectOperation,
+  onToggleSelect,
+  onSelectAll,
+  onClearSelection,
+  onBulkActivate,
+  onBulkDeactivate,
+  onBulkDelete,
   onAddAsset,
   onRemoveOperation,
 }: OperationListProps) {
@@ -56,6 +70,8 @@ export function OperationList({
   const [showAddDropdown, setShowAddDropdown] = useState(false);
 
   const statusLabel = (active: boolean) => (active ? t('common.active') : t('common.inactive'));
+  const hasSelection = selectedIds.size > 0;
+  const showSelectAll = selectedIds.size < operations.length;
 
   return (
     <div
@@ -166,6 +182,129 @@ export function OperationList({
             )}
           </div>
         )}
+        {hasSelection && (
+          <div
+            style={{
+              marginTop: '1rem',
+              padding: '0.75rem',
+              backgroundColor: 'var(--surface-hover)',
+              border: '1px solid var(--border)',
+              borderRadius: 'var(--radius)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '0.75rem',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                flexWrap: 'wrap',
+              }}
+            >
+              <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>
+                Selected: {selectedIds.size}
+              </span>
+              {showSelectAll && (
+                <button
+                  onClick={(e) => {
+                    e.preventDefault();
+                    onSelectAll();
+                  }}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--primary)',
+                    cursor: 'pointer',
+                    fontWeight: 600,
+                    fontSize: '0.85rem',
+                  }}
+                >
+                  Select all
+                </button>
+              )}
+              <button
+                onClick={(e) => {
+                  e.preventDefault();
+                  onClearSelection();
+                }}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--text-secondary)',
+                  cursor: 'pointer',
+                  fontSize: '0.85rem',
+                }}
+              >
+                Clear
+              </button>
+            </div>
+            <div
+              style={{
+                display: 'flex',
+                gap: '0.5rem',
+                flexWrap: 'wrap',
+              }}
+            >
+              <button
+                onClick={(e) => {
+                  e.preventDefault();
+                  onBulkActivate();
+                }}
+                disabled={!hasSelection}
+                style={{
+                  padding: '0.35rem 0.75rem',
+                  borderRadius: '6px',
+                  border: '1px solid var(--border)',
+                  backgroundColor: 'var(--surface)',
+                  cursor: hasSelection ? 'pointer' : 'not-allowed',
+                  fontWeight: 600,
+                  fontSize: '0.85rem',
+                }}
+              >
+                Activate
+              </button>
+              <button
+                onClick={(e) => {
+                  e.preventDefault();
+                  onBulkDeactivate();
+                }}
+                disabled={!hasSelection}
+                style={{
+                  padding: '0.35rem 0.75rem',
+                  borderRadius: '6px',
+                  border: '1px solid var(--border)',
+                  backgroundColor: 'var(--surface)',
+                  cursor: hasSelection ? 'pointer' : 'not-allowed',
+                  fontWeight: 600,
+                  fontSize: '0.85rem',
+                }}
+              >
+                Deactivate
+              </button>
+              <button
+                onClick={(e) => {
+                  e.preventDefault();
+                  onBulkDelete();
+                }}
+                disabled={!hasSelection}
+                style={{
+                  padding: '0.35rem 0.75rem',
+                  borderRadius: '6px',
+                  border: '1px solid var(--border)',
+                  backgroundColor: 'var(--surface)',
+                  cursor: hasSelection ? 'pointer' : 'not-allowed',
+                  fontWeight: 600,
+                  fontSize: '0.85rem',
+                  color: 'var(--danger)',
+                }}
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Operations List */}
@@ -227,6 +366,21 @@ export function OperationList({
                     gap: '0.75rem',
                   }}
                 >
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.has(op.id)}
+                    onChange={(e) => {
+                      e.stopPropagation();
+                      onToggleSelect(op.id);
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                    style={{
+                      width: '18px',
+                      height: '18px',
+                      marginTop: '0.25rem',
+                      cursor: 'pointer',
+                    }}
+                  />
                   <Icon
                     size={24}
                     style={{
@@ -251,9 +405,9 @@ export function OperationList({
                             width: '8px',
                             height: '8px',
                             borderRadius: '50%',
-                          backgroundColor: isActive
-                            ? isSelected
-                              ? 'rgba(255, 255, 255, 0.9)'
+                            backgroundColor: isActive
+                              ? isSelected
+                                ? 'rgba(255, 255, 255, 0.9)'
                                 : 'var(--success)'
                               : isSelected
                                 ? 'rgba(255, 255, 255, 0.4)'
@@ -294,7 +448,9 @@ export function OperationList({
                           style={{
                             background: 'none',
                             border: 'none',
-                            padding: '4px',
+                            padding: '8px',
+                            minWidth: '28px',
+                            minHeight: '28px',
                             cursor: 'pointer',
                             color: isSelected ? 'rgba(255,255,255,0.8)' : 'var(--text-muted)',
                             display: 'flex',
