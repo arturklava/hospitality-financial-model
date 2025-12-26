@@ -5,6 +5,7 @@ import { PercentageSlider } from '../components/inputs/PercentageSlider';
 import { SectionCard } from '../components/ui/SectionCard';
 import { ScenarioCard } from '../components/analysis/ScenarioCard';
 import { SkeletonCard } from '../components/common/Skeleton';
+import { InteractionLockOverlay } from '../components/common/InteractionLockOverlay';
 import { VarianceBridge } from '../components/analysis/VarianceBridge';
 import { useTranslation } from '../contexts/LanguageContext';
 import { getLocaleConfig } from '../utils/formatters';
@@ -52,6 +53,11 @@ export function AnalysisView({ input }: AnalysisViewProps) {
 
   return (
     <div className="analysis-view" style={{ position: 'relative' }}>
+      <InteractionLockOverlay
+        isOpen={isLoading}
+        title={language === 'pt' ? 'Calculando…' : 'Calculating…'}
+        description={language === 'pt' ? 'Aguarde — a análise está em execução.' : 'Please wait — analysis is running.'}
+      />
       {isLoading && (
         <div style={{
           position: 'fixed',

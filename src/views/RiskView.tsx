@@ -13,6 +13,7 @@ import { GoalSeekPanel } from '../components/analysis/GoalSeekPanel';
 import { SectionCard } from '../components/ui/SectionCard';
 import { SkeletonCard } from '../components/common/Skeleton';
 import { ProgressBar } from '../components/common/ProgressBar';
+import { InteractionLockOverlay } from '../components/common/InteractionLockOverlay';
 import { useSimulationWorker } from '../ui/hooks/useSimulationWorker';
 import type { FullModelInput, FullModelOutput, NamedScenario, SimulationResult, SimulationConfig, CorrelationMatrix as CorrelationMatrixType, SensitivityVariable, DistributionType } from '../domain/types';
 import { useTranslation } from '../contexts/LanguageContext';
@@ -40,7 +41,7 @@ export function RiskView({ input, baseOutput, onRunSimulation, onUpdateInput }: 
   const [occupancyDistributionType, setOccupancyDistributionType] = useState<DistributionType>('normal');
   const [adrDistributionType, setAdrDistributionType] = useState<DistributionType>('normal');
   const [interestRateDistributionType, setInterestRateDistributionType] = useState<DistributionType>('normal');
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
 
   // Use simulation worker hook
   const { runSimulation, isLoading, progress, error } = useSimulationWorker();
@@ -244,6 +245,11 @@ export function RiskView({ input, baseOutput, onRunSimulation, onUpdateInput }: 
 
   return (
     <div className="risk-view">
+      <InteractionLockOverlay
+        isOpen={isLoading}
+        title={language === 'pt' ? 'Calculando…' : 'Calculating…'}
+        description={language === 'pt' ? 'Aguarde — a simulação está em execução.' : 'Please wait — simulation is running.'}
+      />
       <div className="view-header" style={{ marginBottom: '2rem' }}>
         <h1 style={{ fontFamily: 'var(--font-display, "Josefin Sans", sans-serif)' }}>{t('risk.title')}</h1>
         <p style={{ color: 'var(--text-secondary)', fontFamily: 'var(--font-body, "Montserrat", sans-serif)' }}>
