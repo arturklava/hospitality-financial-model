@@ -5,6 +5,7 @@
  * No axes, no grid, no tooltip - just the line.
  */
 
+import { useTranslation } from 'react-i18next';
 import { LineChart, Line, ResponsiveContainer } from 'recharts';
 
 interface SparklineProps {
@@ -12,6 +13,8 @@ interface SparklineProps {
   height?: number;
   trend?: 'up' | 'down' | 'neutral';
   color?: string;
+  noDataTitle?: string;
+  noDataDescription?: string;
 }
 
 /**
@@ -46,24 +49,37 @@ function getLineColor(trend: 'up' | 'down' | 'neutral', customColor?: string): s
   }
 }
 
-export function Sparkline({ 
-  data, 
+export function Sparkline({
+  data,
   height = 40,
   trend,
-  color
+  color,
+  noDataTitle,
+  noDataDescription
 }: SparklineProps) {
+  const { t } = useTranslation();
+
   // Handle empty or invalid data
   if (!data || data.length === 0) {
+    const fallbackTitle = noDataTitle ?? t('common.noData');
+    const fallbackDescription = noDataDescription ?? t('common.noDataDescription');
+
     return (
-      <div style={{ 
-        height: `${height}px`, 
-        display: 'flex', 
-        alignItems: 'center', 
+      <div style={{
+        height: `${height}px`,
+        display: 'flex',
+        alignItems: 'center',
         justifyContent: 'center',
         color: 'var(--text-muted)',
-        fontSize: '0.75rem'
+        fontSize: '0.75rem',
+        flexDirection: 'column',
+        gap: '0.25rem',
+        textAlign: 'center'
       }}>
-        No data
+        <span>{fallbackTitle}</span>
+        {fallbackDescription && (
+          <span style={{ fontSize: '0.7rem' }}>{fallbackDescription}</span>
+        )}
       </div>
     );
   }
