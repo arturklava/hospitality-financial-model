@@ -16,6 +16,7 @@ import { SectionCard } from '../components/ui/SectionCard';
 import { formatCurrency, formatPercent } from '../utils/formatters';
 import { Camera, Layers, ArrowUp, ArrowDown, Minus, Trash2, AlertTriangle } from 'lucide-react';
 import type { FullModelInput, ProjectKpis } from '../domain/types';
+import { useTranslation } from '../contexts/LanguageContext';
 
 interface ComparisonViewProps {
   currentInput?: FullModelInput;
@@ -25,6 +26,7 @@ interface ComparisonViewProps {
 type ComparisonMode = 'snapshot' | 'library' | 'triad';
 
 export function ComparisonView({ currentInput, currentOutput }: ComparisonViewProps) {
+  const { t, language } = useTranslation();
   const { scenarios, loading } = useScenarioLibrary();
   const { snapshot, hasSnapshot, saveSnapshot, clearSnapshot } = useScenarioSnapshot();
   const { triad, error: triadError } = useScenarioTriad(currentInput);
@@ -104,7 +106,7 @@ export function ComparisonView({ currentInput, currentOutput }: ComparisonViewPr
 
     // For large values, show currency
     if (Math.abs(baseline) >= 1000000) {
-      return { value: `${sign}${formatCurrency(delta)}`, color, icon };
+      return { value: `${sign}${formatCurrency(delta, language)}`, color, icon };
     }
     // For percentages
     if (Math.abs(baseline) < 1) {
@@ -127,10 +129,10 @@ export function ComparisonView({ currentInput, currentOutput }: ComparisonViewPr
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div>
           <h1 style={{ margin: 0, marginBottom: '0.5rem', fontSize: '1.5rem', fontWeight: 600, fontFamily: 'var(--font-display)' }}>
-            Scenario Comparison
+            {t('comparison.title')}
           </h1>
           <p style={{ color: 'var(--text-secondary)', margin: 0 }}>
-            Compare scenarios to understand investment impact.
+            {t('comparison.subtitle') ?? 'Compare scenarios to understand investment impact.'}
           </p>
         </div>
 
@@ -204,7 +206,10 @@ export function ComparisonView({ currentInput, currentOutput }: ComparisonViewPr
                   </h3>
                   <KpiDisplay kpis={triad.stress} />
                   <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid var(--border)' }}>
-                    <DeltaIndicator label="NPV vs Base" delta={formatDelta(triad.stress.npv, triad.base.npv)} />
+                    <DeltaIndicator
+                      label={`${t('financial.npv')} ${t('comparison.vsBase')}`}
+                      delta={formatDelta(triad.stress.npv, triad.base.npv)}
+                    />
                   </div>
                 </div>
 
@@ -226,7 +231,10 @@ export function ComparisonView({ currentInput, currentOutput }: ComparisonViewPr
                   </h3>
                   <KpiDisplay kpis={triad.upside} />
                   <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid var(--border)' }}>
-                    <DeltaIndicator label="NPV vs Base" delta={formatDelta(triad.upside.npv, triad.base.npv)} />
+                    <DeltaIndicator
+                      label={`${t('financial.npv')} ${t('comparison.vsBase')}`}
+                      delta={formatDelta(triad.upside.npv, triad.base.npv)}
+                    />
                   </div>
                 </div>
               </div>
@@ -246,18 +254,18 @@ export function ComparisonView({ currentInput, currentOutput }: ComparisonViewPr
                   </thead>
                   <tbody>
                     <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                      <td style={{ padding: '0.75rem' }}>NPV</td>
-                      <td style={{ padding: '0.75rem', textAlign: 'right' }}>{formatCurrency(triad.stress.npv)}</td>
-                      <td style={{ padding: '0.75rem', textAlign: 'right', fontWeight: 600 }}>{formatCurrency(triad.base.npv)}</td>
-                      <td style={{ padding: '0.75rem', textAlign: 'right' }}>{formatCurrency(triad.upside.npv)}</td>
-                      <td style={{ padding: '0.75rem', textAlign: 'right', color: 'var(--danger)' }}>{formatCurrency(triad.stress.npv - triad.base.npv)}</td>
-                      <td style={{ padding: '0.75rem', textAlign: 'right', color: 'var(--success)' }}>+{formatCurrency(triad.upside.npv - triad.base.npv)}</td>
+                      <td style={{ padding: '0.75rem' }}>{t('financial.npv')}</td>
+                      <td style={{ padding: '0.75rem', textAlign: 'right' }}>{formatCurrency(triad.stress.npv, language)}</td>
+                      <td style={{ padding: '0.75rem', textAlign: 'right', fontWeight: 600 }}>{formatCurrency(triad.base.npv, language)}</td>
+                      <td style={{ padding: '0.75rem', textAlign: 'right' }}>{formatCurrency(triad.upside.npv, language)}</td>
+                      <td style={{ padding: '0.75rem', textAlign: 'right', color: 'var(--danger)' }}>{formatCurrency(triad.stress.npv - triad.base.npv, language)}</td>
+                      <td style={{ padding: '0.75rem', textAlign: 'right', color: 'var(--success)' }}>+{formatCurrency(triad.upside.npv - triad.base.npv, language)}</td>
                     </tr>
                     <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                      <td style={{ padding: '0.75rem' }}>Unlevered IRR</td>
-                      <td style={{ padding: '0.75rem', textAlign: 'right' }}>{triad.stress.unleveredIrr !== null ? formatPercent(triad.stress.unleveredIrr) : 'N/A'}</td>
-                      <td style={{ padding: '0.75rem', textAlign: 'right', fontWeight: 600 }}>{triad.base.unleveredIrr !== null ? formatPercent(triad.base.unleveredIrr) : 'N/A'}</td>
-                      <td style={{ padding: '0.75rem', textAlign: 'right' }}>{triad.upside.unleveredIrr !== null ? formatPercent(triad.upside.unleveredIrr) : 'N/A'}</td>
+                      <td style={{ padding: '0.75rem' }}>{t('financial.unleveredIrr')}</td>
+                      <td style={{ padding: '0.75rem', textAlign: 'right' }}>{triad.stress.unleveredIrr !== null ? formatPercent(triad.stress.unleveredIrr, language) : 'N/A'}</td>
+                      <td style={{ padding: '0.75rem', textAlign: 'right', fontWeight: 600 }}>{triad.base.unleveredIrr !== null ? formatPercent(triad.base.unleveredIrr, language) : 'N/A'}</td>
+                      <td style={{ padding: '0.75rem', textAlign: 'right' }}>{triad.upside.unleveredIrr !== null ? formatPercent(triad.upside.unleveredIrr, language) : 'N/A'}</td>
                       <td style={{ padding: '0.75rem', textAlign: 'right', color: 'var(--danger)' }}>
                         {triad.stress.unleveredIrr !== null && triad.base.unleveredIrr !== null
                           ? `${((triad.stress.unleveredIrr - triad.base.unleveredIrr) * 100).toFixed(2)}pp`
@@ -269,19 +277,19 @@ export function ComparisonView({ currentInput, currentOutput }: ComparisonViewPr
                           : 'N/A'}
                       </td>
                     </tr>
-                    <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                      <td style={{ padding: '0.75rem' }}>Equity Multiple</td>
-                      <td style={{ padding: '0.75rem', textAlign: 'right' }}>{triad.stress.equityMultiple.toFixed(2)}x</td>
-                      <td style={{ padding: '0.75rem', textAlign: 'right', fontWeight: 600 }}>{triad.base.equityMultiple.toFixed(2)}x</td>
-                      <td style={{ padding: '0.75rem', textAlign: 'right' }}>{triad.upside.equityMultiple.toFixed(2)}x</td>
-                      <td style={{ padding: '0.75rem', textAlign: 'right', color: 'var(--danger)' }}>{(triad.stress.equityMultiple - triad.base.equityMultiple).toFixed(2)}x</td>
-                      <td style={{ padding: '0.75rem', textAlign: 'right', color: 'var(--success)' }}>+{(triad.upside.equityMultiple - triad.base.equityMultiple).toFixed(2)}x</td>
-                    </tr>
-                    <tr>
-                      <td style={{ padding: '0.75rem' }}>Payback Period</td>
-                      <td style={{ padding: '0.75rem', textAlign: 'right' }}>{triad.stress.paybackPeriod !== null ? `${triad.stress.paybackPeriod.toFixed(1)}y` : 'N/A'}</td>
-                      <td style={{ padding: '0.75rem', textAlign: 'right', fontWeight: 600 }}>{triad.base.paybackPeriod !== null ? `${triad.base.paybackPeriod.toFixed(1)}y` : 'N/A'}</td>
-                      <td style={{ padding: '0.75rem', textAlign: 'right' }}>{triad.upside.paybackPeriod !== null ? `${triad.upside.paybackPeriod.toFixed(1)}y` : 'N/A'}</td>
+                      <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                        <td style={{ padding: '0.75rem' }}>{t('financial.equityMultiple')}</td>
+                        <td style={{ padding: '0.75rem', textAlign: 'right' }}>{triad.stress.equityMultiple.toFixed(2)}x</td>
+                        <td style={{ padding: '0.75rem', textAlign: 'right', fontWeight: 600 }}>{triad.base.equityMultiple.toFixed(2)}x</td>
+                        <td style={{ padding: '0.75rem', textAlign: 'right' }}>{triad.upside.equityMultiple.toFixed(2)}x</td>
+                        <td style={{ padding: '0.75rem', textAlign: 'right', color: 'var(--danger)' }}>{(triad.stress.equityMultiple - triad.base.equityMultiple).toFixed(2)}x</td>
+                        <td style={{ padding: '0.75rem', textAlign: 'right', color: 'var(--success)' }}>+{(triad.upside.equityMultiple - triad.base.equityMultiple).toFixed(2)}x</td>
+                      </tr>
+                      <tr>
+                        <td style={{ padding: '0.75rem' }}>{t('financial.paybackPeriod')}</td>
+                        <td style={{ padding: '0.75rem', textAlign: 'right' }}>{triad.stress.paybackPeriod !== null ? `${triad.stress.paybackPeriod.toFixed(1)} ${t('common.years')}` : 'N/A'}</td>
+                        <td style={{ padding: '0.75rem', textAlign: 'right', fontWeight: 600 }}>{triad.base.paybackPeriod !== null ? `${triad.base.paybackPeriod.toFixed(1)} ${t('common.years')}` : 'N/A'}</td>
+                        <td style={{ padding: '0.75rem', textAlign: 'right' }}>{triad.upside.paybackPeriod !== null ? `${triad.upside.paybackPeriod.toFixed(1)} ${t('common.years')}` : 'N/A'}</td>
                       <td style={{ padding: '0.75rem', textAlign: 'right', color: triad.stress.paybackPeriod !== null && triad.base.paybackPeriod !== null ? 'var(--danger)' : 'var(--text-secondary)' }}>
                         {triad.stress.paybackPeriod !== null && triad.base.paybackPeriod !== null
                           ? `+${(triad.stress.paybackPeriod - triad.base.paybackPeriod).toFixed(1)}y`
@@ -474,12 +482,13 @@ export function ComparisonView({ currentInput, currentOutput }: ComparisonViewPr
 
 // KPI Display Component
 function KpiDisplay({ kpis }: { kpis: ProjectKpis }) {
+  const { t, language } = useTranslation();
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-      <KpiRow label="NPV" value={formatCurrency(kpis.npv)} />
-      <KpiRow label="Unlevered IRR" value={kpis.unleveredIrr !== null ? formatPercent(kpis.unleveredIrr) : 'N/A'} />
-      <KpiRow label="Equity Multiple" value={`${kpis.equityMultiple.toFixed(2)}x`} />
-      <KpiRow label="Payback Period" value={kpis.paybackPeriod !== null ? `${kpis.paybackPeriod.toFixed(1)} years` : 'N/A'} />
+      <KpiRow label={t('financial.npv')} value={formatCurrency(kpis.npv, language)} />
+      <KpiRow label={t('financial.unleveredIrr')} value={kpis.unleveredIrr !== null ? formatPercent(kpis.unleveredIrr, language) : 'N/A'} />
+      <KpiRow label={t('financial.equityMultiple')} value={`${kpis.equityMultiple.toFixed(2)}x`} />
+      <KpiRow label={t('financial.paybackPeriod')} value={kpis.paybackPeriod !== null ? `${kpis.paybackPeriod.toFixed(1)} ${t('common.years')}` : 'N/A'} />
     </div>
   );
 }
@@ -499,11 +508,12 @@ function KpiRow({ label, value }: { label: string; value: string }) {
 
 // Delta Indicator Component
 function DeltaIndicator({ label, delta }: { label: string; delta: { value: string; color: string; icon: 'up' | 'down' | 'same' } }) {
+  const { t } = useTranslation();
   const Icon = delta.icon === 'up' ? ArrowUp : delta.icon === 'down' ? ArrowDown : Minus;
   return (
     <div style={{ textAlign: 'center' }}>
       <div style={{ fontSize: '0.6875rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-secondary)', marginBottom: '0.25rem' }}>
-        Δ {label}
+        {t('comparison.delta')}: {label}
       </div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.25rem', color: delta.color, fontWeight: 600, fontSize: '0.875rem' }}>
         <Icon size={14} />

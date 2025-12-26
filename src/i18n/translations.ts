@@ -749,6 +749,7 @@ export const translations = {
         // Comparison View
         // ========================================
         'comparison.title': 'Comparação de Cenários',
+        'comparison.subtitle': 'Compare cenários para entender o impacto no investimento.',
         'comparison.base': 'Base',
         'comparison.stress': 'Stress',
         'comparison.upside': 'Otimista',
@@ -1500,6 +1501,7 @@ export const translations = {
         // Comparison View
         // ========================================
         'comparison.title': 'Scenario Comparison',
+        'comparison.subtitle': 'Compare scenarios to understand investment impact.',
         'comparison.base': 'Base',
         'comparison.stress': 'Stress',
         'comparison.upside': 'Upside',
