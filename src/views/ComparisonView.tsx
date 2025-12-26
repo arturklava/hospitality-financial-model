@@ -13,9 +13,10 @@ import { useScenarioTriad } from '../ui/hooks/useScenarioTriad';
 
 import { compareScenarios } from '../engines/analysis/scenarioComparison';
 import { SectionCard } from '../components/ui/SectionCard';
-import { formatCurrency, formatPercent } from '../utils/formatters';
+import { formatCurrency, formatPercent, formatMultiplier, getLocaleConfig } from '../utils/formatters';
 import { Camera, Layers, ArrowUp, ArrowDown, Minus, Trash2, AlertTriangle } from 'lucide-react';
 import type { FullModelInput, ProjectKpis } from '../domain/types';
+import { useTranslation } from '../contexts/LanguageContext';
 
 interface ComparisonViewProps {
   currentInput?: FullModelInput;
@@ -474,12 +475,42 @@ export function ComparisonView({ currentInput, currentOutput }: ComparisonViewPr
 
 // KPI Display Component
 function KpiDisplay({ kpis }: { kpis: ProjectKpis }) {
+  const { t, language } = useTranslation();
+  const { locale } = getLocaleConfig(language);
+
+  const formatPaybackPeriod = (period: number | null): string => {
+    if (period === null || period === undefined || Number.isNaN(period)) {
+      return t('common.none');
+    }
+
+    if (!Number.isFinite(period)) {
+      return period > 0 ? '∞' : '-∞';
+    }
+
+    const formatter = new Intl.NumberFormat(locale, {
+      minimumFractionDigits: 1,
+      maximumFractionDigits: 1,
+    });
+
+    const unitKey = Math.abs(period) === 1 ? 'common.year' : 'common.years';
+    return `${formatter.format(period)} ${t(unitKey)}`;
+  };
+
+  const formatCurrencyValue = (value: number | null | undefined) =>
+    value === null || value === undefined ? t('common.none') : formatCurrency(value, language);
+
+  const formatPercentValue = (value: number | null | undefined) =>
+    value === null || value === undefined ? t('common.none') : formatPercent(value, language);
+
+  const formatMultipleValue = (value: number | null | undefined) =>
+    value === null || value === undefined ? t('common.none') : formatMultiplier(value, language);
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-      <KpiRow label="NPV" value={formatCurrency(kpis.npv)} />
-      <KpiRow label="Unlevered IRR" value={kpis.unleveredIrr !== null ? formatPercent(kpis.unleveredIrr) : 'N/A'} />
-      <KpiRow label="Equity Multiple" value={`${kpis.equityMultiple.toFixed(2)}x`} />
-      <KpiRow label="Payback Period" value={kpis.paybackPeriod !== null ? `${kpis.paybackPeriod.toFixed(1)} years` : 'N/A'} />
+      <KpiRow label={t('financial.npv')} value={formatCurrencyValue(kpis.npv)} />
+      <KpiRow label={t('financial.unleveredIrr')} value={formatPercentValue(kpis.unleveredIrr)} />
+      <KpiRow label={t('financial.equityMultiple')} value={formatMultipleValue(kpis.equityMultiple)} />
+      <KpiRow label={t('financial.paybackPeriod')} value={formatPaybackPeriod(kpis.paybackPeriod)} />
     </div>
   );
 }
