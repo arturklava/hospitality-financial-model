@@ -10,11 +10,13 @@ import { useState, useMemo } from 'react';
 import { useScenarioLibrary } from '../ui/hooks/useScenarioLibrary';
 import { useScenarioSnapshot } from '../ui/hooks/useScenarioSnapshot';
 import { useScenarioTriad } from '../ui/hooks/useScenarioTriad';
+import { useTranslation } from '../contexts/LanguageContext';
 
 import { compareScenarios } from '../engines/analysis/scenarioComparison';
 import { SectionCard } from '../components/ui/SectionCard';
+import { NoDataState } from '../components/charts/NoDataState';
 import { formatCurrency, formatPercent } from '../utils/formatters';
-import { Camera, Layers, ArrowUp, ArrowDown, Minus, Trash2, AlertTriangle } from 'lucide-react';
+import { Camera, Layers, ArrowUp, ArrowDown, Minus, Trash2 } from 'lucide-react';
 import type { FullModelInput, ProjectKpis } from '../domain/types';
 
 interface ComparisonViewProps {
@@ -28,6 +30,7 @@ export function ComparisonView({ currentInput, currentOutput }: ComparisonViewPr
   const { scenarios, loading } = useScenarioLibrary();
   const { snapshot, hasSnapshot, saveSnapshot, clearSnapshot } = useScenarioSnapshot();
   const { triad, error: triadError } = useScenarioTriad(currentInput);
+  const { t } = useTranslation();
   const [mode, setMode] = useState<ComparisonMode>('triad'); // Default to triad view
   const [selectedScenarioIds, setSelectedScenarioIds] = useState<string[]>([]);
 
@@ -179,17 +182,20 @@ export function ComparisonView({ currentInput, currentOutput }: ComparisonViewPr
       {mode === 'triad' && (
         <>
           {triadError ? (
-            <SectionCard title="Error">
-              <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--danger)' }}>
-                <AlertTriangle size={48} style={{ marginBottom: '1rem' }} />
-                <p>Failed to compute scenario triad: {triadError.message}</p>
-              </div>
+            <SectionCard title={t('analysis.triad.errorTitle')}>
+              <NoDataState
+                height={280}
+                messageKey="analysis.triad.errorTitle"
+                description={`${t('analysis.triad.errorDescription')} ${triadError.message}`}
+              />
             </SectionCard>
           ) : !triad ? (
-            <SectionCard title="Loading">
-              <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
-                Computing scenarios...
-              </div>
+            <SectionCard title={t('analysis.triad.loadingTitle')}>
+              <NoDataState
+                height={280}
+                messageKey="analysis.triad.loadingTitle"
+                descriptionKey="analysis.triad.loadingDescription"
+              />
             </SectionCard>
           ) : (
             <SectionCard title="Real-time Scenario Comparison">

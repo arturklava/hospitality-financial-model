@@ -465,6 +465,10 @@ export const translations = {
         // ========================================
         'analysis.title': 'Cenários Interativos e Testes de Stress',
         'analysis.subtitle': 'Arraste os controles para testar seu modelo e comparar cenários lado a lado.',
+        'analysis.triad.loadingTitle': 'Gerando Cenários',
+        'analysis.triad.loadingDescription': 'Aguarde enquanto calculamos os cenários Base, Stress e Otimista.',
+        'analysis.triad.errorTitle': 'Erro ao calcular a triad',
+        'analysis.triad.errorDescription': 'Não foi possível gerar os cenários. Verifique os dados de entrada.',
         'analysis.sensitivityControls': 'Controles de Sensibilidade',
         'analysis.stressLevel': 'Nível de Stress',
         'analysis.scenarioOutcomes': 'Resultados dos Cenários',
@@ -1216,6 +1220,10 @@ export const translations = {
         // ========================================
         'analysis.title': 'Interactive Scenarios',
         'analysis.subtitle': 'Drag controls to test your model and compare scenarios side-by-side.',
+        'analysis.triad.loadingTitle': 'Generating Scenarios',
+        'analysis.triad.loadingDescription': 'Hang tight while we compute the Base, Stress, and Upside scenarios.',
+        'analysis.triad.errorTitle': 'Failed to compute triad',
+        'analysis.triad.errorDescription': 'We could not generate the scenarios. Please review the input data.',
         'analysis.sensitivityControls': 'Sensitivity Controls',
         'analysis.stressLevel': 'Stress Level',
         'analysis.scenarioOutcomes': 'Scenario Outcomes',
