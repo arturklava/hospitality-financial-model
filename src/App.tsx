@@ -25,6 +25,12 @@ import { useScenarioLibrary } from './ui/hooks/useScenarioLibrary';
 import type { ViewId } from './components/layout/Sidebar';
 import type { NamedScenario } from './domain/types';
 
+type SaveUiState = {
+  status: 'idle' | 'saving' | 'saved' | 'error';
+  lastSavedAt?: number;
+  errorMessage?: string;
+};
+
 function App() {
   const { user, loading: authLoading, isGuest } = useAuth();
   const {
@@ -44,6 +50,7 @@ function App() {
   const { scenarios: libraryScenarios } = useScenarioLibrary();
 
   const [activeView, setActiveView] = useState<ViewId>('dashboard');
+  const [saveUiState, setSaveUiState] = useState<SaveUiState>({ status: 'idle' });
 
   // Show loading spinner while checking auth
   if (authLoading) {
@@ -175,6 +182,29 @@ function App() {
         terminalGrowthRate: rate,
       },
     });
+  };
+
+  const handleSave = async () => {
+    setSaveUiState({ status: 'saving' });
+
+    try {
+      const result = await saveVersion(input.scenario.name);
+
+      if (result) {
+        setSaveUiState({ status: 'saved', lastSavedAt: Date.now() });
+        setTimeout(() =>
+          setSaveUiState(s =>
+            s.status === 'saved' ? { status: 'idle', lastSavedAt: s.lastSavedAt } : s
+          ),
+        1500);
+      } else {
+        setSaveUiState({ status: 'error', errorMessage: 'Save failed' });
+        setTimeout(() => setSaveUiState({ status: 'idle' }), 2500);
+      }
+    } catch (error) {
+      setSaveUiState({ status: 'error', errorMessage: 'Save failed' });
+      setTimeout(() => setSaveUiState({ status: 'idle' }), 2500);
+    }
   };
 
   const renderView = () => {
@@ -428,7 +458,8 @@ function App() {
         <Header
           scenarioName={input.scenario.name}
           onScenarioNameChange={handleScenarioNameChange}
-          onSave={() => saveVersion(input.scenario.name)}
+          onSave={handleSave}
+          saveUiState={saveUiState}
           onExport={exportJson}
           scenarios={scenariosForHeader}
           activeScenarioId={currentScenarioId}

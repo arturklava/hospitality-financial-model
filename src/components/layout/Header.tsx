@@ -1,5 +1,15 @@
 import { useState } from 'react';
-import { Save, Download, Eye, EyeOff, FolderOpen, FileText, Globe } from 'lucide-react';
+import {
+    Save,
+    Download,
+    Eye,
+    EyeOff,
+    FolderOpen,
+    FileText,
+    Globe,
+    CheckCircle2,
+    AlertTriangle,
+} from 'lucide-react';
 import { useAudit } from '../../ui/contexts/AuditContext';
 import { useTranslation } from '../../contexts/LanguageContext';
 import { useAuth } from '../../contexts/AuthContext';
@@ -8,10 +18,17 @@ import { ScenarioHubModal } from '../governance/ScenarioHubModal';
 import { ExportDialog } from '../reports/ExportDialog';
 import type { NamedScenario, FullModelOutput } from '../../domain/types';
 
+type SaveUiState = {
+    status: 'idle' | 'saving' | 'saved' | 'error';
+    lastSavedAt?: number;
+    errorMessage?: string;
+};
+
 interface HeaderProps {
     scenarioName: string;
     onScenarioNameChange?: (name: string) => void;
     onSave: () => void;
+    saveUiState?: SaveUiState;
     onExport: () => void;
     onManageScenarios?: () => void;
     scenarios?: NamedScenario[];
@@ -33,6 +50,7 @@ export function Header({
     onLoadScenario,
     scenario,
     output,
+    saveUiState,
 }: HeaderProps) {
     const { isAuditMode, toggleAuditMode } = useAudit();
     const { t, language, toggleLanguage } = useTranslation();
@@ -40,38 +58,59 @@ export function Header({
     const [isScenarioHubOpen, setIsScenarioHubOpen] = useState(false);
     const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
     const [isExcelGateOpen, setIsExcelGateOpen] = useState(false);
-    const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
-
-    const handleSave = async () => {
-        if (saveState === 'saving') return;
-
-        setSaveState('saving');
-        try {
-            await Promise.resolve(onSave());
-            setSaveState('saved');
-            setTimeout(() => setSaveState('idle'), 1500);
-        } catch (error) {
-            console.error(error);
-            setSaveState('error');
-            setTimeout(() => setSaveState('idle'), 2000);
-        }
-    };
 
     const getSaveLabel = () => {
-        if (saveState === 'saving') {
+        if (saveUiState?.status === 'saving') {
             return language === 'pt' ? 'Salvando…' : 'Saving…';
         }
-        if (saveState === 'saved') {
-            return language === 'pt' ? 'Salvo!' : 'Saved!';
+        if (saveUiState?.status === 'saved') {
+            return language === 'pt' ? 'Salvo' : 'Saved';
         }
-        if (saveState === 'error') {
-            return language === 'pt' ? 'Erro' : 'Error';
+        if (saveUiState?.status === 'error') {
+            return language === 'pt' ? 'Falha ao salvar' : 'Save failed';
         }
         return t('common.save');
     };
 
+    const renderSaveIcon = () => {
+        if (saveUiState?.status === 'saving') {
+            return (
+                <div
+                    aria-hidden
+                    style={{
+                        width: '16px',
+                        height: '16px',
+                        border: '2px solid var(--border, #cbd5e1)',
+                        borderTopColor: 'var(--primary, #2563eb)',
+                        borderRadius: '50%',
+                        animation: 'header-spin 0.8s linear infinite',
+                    }}
+                />
+            );
+        }
+
+        if (saveUiState?.status === 'saved') {
+            return <CheckCircle2 size={18} />;
+        }
+
+        if (saveUiState?.status === 'error') {
+            return <AlertTriangle size={18} />;
+        }
+
+        return <Save size={18} />;
+    };
+
     return (
         <>
+            <style>
+                {`
+                    @keyframes header-spin {
+                        to {
+                            transform: rotate(360deg);
+                        }
+                    }
+                `}
+            </style>
             <header className="sticky-header">
                 <div className="header-left">
                     <div className="scenario-info">
@@ -107,6 +146,21 @@ export function Header({
                             />
                         ) : (
                             <span className="scenario-name">{scenarioName}</span>
+                        )}
+                        {saveUiState?.status === 'saved' && (
+                            <span
+                                style={{
+                                    marginLeft: '0.5rem',
+                                    color: 'var(--text-secondary, #64748b)',
+                                    fontSize: '0.85rem',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '0.35rem',
+                                }}
+                            >
+                                <CheckCircle2 size={14} />
+                                {language === 'pt' ? 'Salvo agora' : 'Saved just now'}
+                            </span>
                         )}
                     </div>
                 </div>
@@ -179,11 +233,15 @@ export function Header({
                     )}
                     <MotionButton
                         className="btn btn-primary"
-                        onClick={handleSave}
-                        title={t('common.save')}
-                        disabled={saveState === 'saving'}
+                        onClick={onSave}
+                        title={
+                            saveUiState?.status === 'error'
+                                ? saveUiState.errorMessage || (language === 'pt' ? 'Falha ao salvar' : 'Save failed')
+                                : t('common.save')
+                        }
+                        disabled={saveUiState?.status === 'saving'}
                     >
-                        <Save size={18} />
+                        {renderSaveIcon()}
                         <span>{getSaveLabel()}</span>
                     </MotionButton>
                 </div>
