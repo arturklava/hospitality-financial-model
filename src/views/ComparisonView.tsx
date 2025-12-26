@@ -10,6 +10,7 @@ import { useState, useMemo } from 'react';
 import { useScenarioLibrary } from '../ui/hooks/useScenarioLibrary';
 import { useScenarioSnapshot } from '../ui/hooks/useScenarioSnapshot';
 import { useScenarioTriad } from '../ui/hooks/useScenarioTriad';
+import { useTranslation } from '../contexts/LanguageContext';
 
 import { compareScenarios } from '../engines/analysis/scenarioComparison';
 import { SectionCard } from '../components/ui/SectionCard';
@@ -25,6 +26,7 @@ interface ComparisonViewProps {
 type ComparisonMode = 'snapshot' | 'library' | 'triad';
 
 export function ComparisonView({ currentInput, currentOutput }: ComparisonViewProps) {
+  const { t } = useTranslation();
   const { scenarios, loading } = useScenarioLibrary();
   const { snapshot, hasSnapshot, saveSnapshot, clearSnapshot } = useScenarioSnapshot();
   const { triad, error: triadError } = useScenarioTriad(currentInput);
@@ -84,13 +86,28 @@ export function ComparisonView({ currentInput, currentOutput }: ComparisonViewPr
 
   const handleSaveSnapshot = () => {
     if (currentInput) {
-      const name = `Snapshot ${new Date().toLocaleTimeString()}`;
+      const name = `${t('comparison.snapshot.namePrefix')} ${new Date().toLocaleTimeString()}`;
       saveSnapshot(name, currentInput);
     }
   };
 
+  const kpiLabels = useMemo(
+    () => ({
+      npv: t('financial.short.npv'),
+      unleveredIrr: t('financial.short.unleveredIrr'),
+      equityMultiple: t('financial.short.equityMultiple'),
+      paybackPeriod: t('financial.short.paybackPeriod'),
+      years: t('common.years'),
+      yearsShort: t('common.yearsShort'),
+      notAvailable: t('common.notAvailable'),
+    }),
+    [t]
+  );
+
+  const notAvailable = kpiLabels.notAvailable;
+
   const formatDelta = (current: number | null, baseline: number | null): { value: string; color: string; icon: 'up' | 'down' | 'same' } => {
-    if (current === null || baseline === null) return { value: 'N/A', color: 'var(--text-secondary)', icon: 'same' };
+    if (current === null || baseline === null) return { value: notAvailable, color: 'var(--text-secondary)', icon: 'same' };
     const delta = current - baseline;
     const pctChange = baseline !== 0 ? (delta / Math.abs(baseline)) * 100 : 0;
 
@@ -116,7 +133,7 @@ export function ComparisonView({ currentInput, currentOutput }: ComparisonViewPr
   if (loading) {
     return (
       <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
-        Loading...
+        {t('common.loading')}
       </div>
     );
   }
@@ -127,10 +144,10 @@ export function ComparisonView({ currentInput, currentOutput }: ComparisonViewPr
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div>
           <h1 style={{ margin: 0, marginBottom: '0.5rem', fontSize: '1.5rem', fontWeight: 600, fontFamily: 'var(--font-display)' }}>
-            Scenario Comparison
+            {t('comparison.header.title')}
           </h1>
           <p style={{ color: 'var(--text-secondary)', margin: 0 }}>
-            Compare scenarios to understand investment impact.
+            {t('comparison.header.subtitle')}
           </p>
         </div>
 
@@ -142,7 +159,7 @@ export function ComparisonView({ currentInput, currentOutput }: ComparisonViewPr
             style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
           >
             <Camera size={16} />
-            {hasSnapshot ? 'Update Scenario A' : 'Save as Scenario A'}
+            {hasSnapshot ? t('comparison.snapshot.updateButton') : t('comparison.snapshot.saveAsButton')}
           </button>
         )}
       </div>
@@ -155,7 +172,7 @@ export function ComparisonView({ currentInput, currentOutput }: ComparisonViewPr
           style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
         >
           <Layers size={16} />
-          Base vs Stress vs Upside
+          {t('comparison.tabs.triad')}
         </button>
         <button
           onClick={() => setMode('snapshot')}
@@ -163,7 +180,7 @@ export function ComparisonView({ currentInput, currentOutput }: ComparisonViewPr
           style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
         >
           <Camera size={16} />
-          Snapshot vs Live
+          {t('comparison.tabs.snapshot')}
         </button>
         <button
           onClick={() => setMode('library')}
@@ -171,7 +188,7 @@ export function ComparisonView({ currentInput, currentOutput }: ComparisonViewPr
           style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
         >
           <Layers size={16} />
-          Scenario Library
+          {t('comparison.tabs.library')}
         </button>
       </div>
 
@@ -179,54 +196,66 @@ export function ComparisonView({ currentInput, currentOutput }: ComparisonViewPr
       {mode === 'triad' && (
         <>
           {triadError ? (
-            <SectionCard title="Error">
+            <SectionCard title={t('comparison.error.title')}>
               <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--danger)' }}>
                 <AlertTriangle size={48} style={{ marginBottom: '1rem' }} />
-                <p>Failed to compute scenario triad: {triadError.message}</p>
+                <p>
+                  {t('comparison.error.failedTriad')}: {triadError.message}
+                </p>
               </div>
             </SectionCard>
           ) : !triad ? (
-            <SectionCard title="Loading">
+            <SectionCard title={t('comparison.loading.title')}>
               <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
-                Computing scenarios...
+                {t('comparison.loading.message')}
               </div>
             </SectionCard>
           ) : (
-            <SectionCard title="Real-time Scenario Comparison">
+            <SectionCard title={t('comparison.triad.title')}>
               <p style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem', fontSize: '0.875rem' }}>
-                Stress = Base × 0.9 (Occupancy & ADR), Upside = Base × 1.1 (Occupancy & ADR)
+                {t('comparison.triad.description')}
               </p>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1.5rem' }}>
                 {/* Stress Scenario */}
                 <div className="card" style={{ padding: '1.5rem', border: '2px solid var(--danger)', opacity: 0.95 }}>
                   <h3 style={{ margin: '0 0 1rem 0', fontSize: '1.125rem', fontWeight: 600, borderBottom: '1px solid var(--border)', paddingBottom: '0.75rem', color: 'var(--danger)' }}>
-                    📉 Stress (-10%)
+                    {t('comparison.triad.stressTitle')}
                   </h3>
-                  <KpiDisplay kpis={triad.stress} />
+                  <KpiDisplay kpis={triad.stress} labels={kpiLabels} />
                   <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid var(--border)' }}>
-                    <DeltaIndicator label="NPV vs Base" delta={formatDelta(triad.stress.npv, triad.base.npv)} />
+                    <DeltaIndicator
+                      label={t('comparison.triad.npvVsBase')}
+                      delta={formatDelta(triad.stress.npv, triad.base.npv)}
+                      prefix={t('comparison.deltaPrefix')}
+                    />
                   </div>
                 </div>
 
                 {/* Base Scenario */}
                 <div className="card" style={{ padding: '1.5rem', border: '2px solid var(--primary)' }}>
                   <h3 style={{ margin: '0 0 1rem 0', fontSize: '1.125rem', fontWeight: 600, borderBottom: '1px solid var(--border)', paddingBottom: '0.75rem', color: 'var(--primary)' }}>
-                    📊 Base (Current)
+                    {t('comparison.triad.baseTitle')}
                   </h3>
-                  <KpiDisplay kpis={triad.base} />
+                  <KpiDisplay kpis={triad.base} labels={kpiLabels} />
                   <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid var(--border)', textAlign: 'center' }}>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 600 }}>REFERENCE</span>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 600 }}>
+                      {t('comparison.triad.referenceLabel')}
+                    </span>
                   </div>
                 </div>
 
                 {/* Upside Scenario */}
                 <div className="card" style={{ padding: '1.5rem', border: '2px solid var(--success)', opacity: 0.95 }}>
                   <h3 style={{ margin: '0 0 1rem 0', fontSize: '1.125rem', fontWeight: 600, borderBottom: '1px solid var(--border)', paddingBottom: '0.75rem', color: 'var(--success)' }}>
-                    📈 Upside (+10%)
+                    {t('comparison.triad.upsideTitle')}
                   </h3>
-                  <KpiDisplay kpis={triad.upside} />
+                  <KpiDisplay kpis={triad.upside} labels={kpiLabels} />
                   <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid var(--border)' }}>
-                    <DeltaIndicator label="NPV vs Base" delta={formatDelta(triad.upside.npv, triad.base.npv)} />
+                    <DeltaIndicator
+                      label={t('comparison.triad.npvVsBase')}
+                      delta={formatDelta(triad.upside.npv, triad.base.npv)}
+                      prefix={t('comparison.deltaPrefix')}
+                    />
                   </div>
                 </div>
               </div>
@@ -236,17 +265,21 @@ export function ComparisonView({ currentInput, currentOutput }: ComparisonViewPr
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
                   <thead>
                     <tr style={{ borderBottom: '2px solid var(--border)' }}>
-                      <th style={{ padding: '0.75rem', textAlign: 'left', fontWeight: 600 }}>Metric</th>
-                      <th style={{ padding: '0.75rem', textAlign: 'right', fontWeight: 600, color: 'var(--danger)' }}>Stress</th>
-                      <th style={{ padding: '0.75rem', textAlign: 'right', fontWeight: 600, color: 'var(--primary)' }}>Base</th>
-                      <th style={{ padding: '0.75rem', textAlign: 'right', fontWeight: 600, color: 'var(--success)' }}>Upside</th>
-                      <th style={{ padding: '0.75rem', textAlign: 'right', fontWeight: 600 }}>Δ Stress</th>
-                      <th style={{ padding: '0.75rem', textAlign: 'right', fontWeight: 600 }}>Δ Upside</th>
+                      <th style={{ padding: '0.75rem', textAlign: 'left', fontWeight: 600 }}>{t('comparison.table.metric')}</th>
+                      <th style={{ padding: '0.75rem', textAlign: 'right', fontWeight: 600, color: 'var(--danger)' }}>{t('comparison.table.stress')}</th>
+                      <th style={{ padding: '0.75rem', textAlign: 'right', fontWeight: 600, color: 'var(--primary)' }}>{t('comparison.table.base')}</th>
+                      <th style={{ padding: '0.75rem', textAlign: 'right', fontWeight: 600, color: 'var(--success)' }}>{t('comparison.table.upside')}</th>
+                      <th style={{ padding: '0.75rem', textAlign: 'right', fontWeight: 600 }}>
+                        {t('comparison.table.deltaStress')}
+                      </th>
+                      <th style={{ padding: '0.75rem', textAlign: 'right', fontWeight: 600 }}>
+                        {t('comparison.table.deltaUpside')}
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
                     <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                      <td style={{ padding: '0.75rem' }}>NPV</td>
+                      <td style={{ padding: '0.75rem' }}>{t('financial.short.npv')}</td>
                       <td style={{ padding: '0.75rem', textAlign: 'right' }}>{formatCurrency(triad.stress.npv)}</td>
                       <td style={{ padding: '0.75rem', textAlign: 'right', fontWeight: 600 }}>{formatCurrency(triad.base.npv)}</td>
                       <td style={{ padding: '0.75rem', textAlign: 'right' }}>{formatCurrency(triad.upside.npv)}</td>
@@ -254,23 +287,23 @@ export function ComparisonView({ currentInput, currentOutput }: ComparisonViewPr
                       <td style={{ padding: '0.75rem', textAlign: 'right', color: 'var(--success)' }}>+{formatCurrency(triad.upside.npv - triad.base.npv)}</td>
                     </tr>
                     <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                      <td style={{ padding: '0.75rem' }}>Unlevered IRR</td>
-                      <td style={{ padding: '0.75rem', textAlign: 'right' }}>{triad.stress.unleveredIrr !== null ? formatPercent(triad.stress.unleveredIrr) : 'N/A'}</td>
-                      <td style={{ padding: '0.75rem', textAlign: 'right', fontWeight: 600 }}>{triad.base.unleveredIrr !== null ? formatPercent(triad.base.unleveredIrr) : 'N/A'}</td>
-                      <td style={{ padding: '0.75rem', textAlign: 'right' }}>{triad.upside.unleveredIrr !== null ? formatPercent(triad.upside.unleveredIrr) : 'N/A'}</td>
+                      <td style={{ padding: '0.75rem' }}>{t('financial.short.unleveredIrr')}</td>
+                      <td style={{ padding: '0.75rem', textAlign: 'right' }}>{triad.stress.unleveredIrr !== null ? formatPercent(triad.stress.unleveredIrr) : kpiLabels.notAvailable}</td>
+                      <td style={{ padding: '0.75rem', textAlign: 'right', fontWeight: 600 }}>{triad.base.unleveredIrr !== null ? formatPercent(triad.base.unleveredIrr) : kpiLabels.notAvailable}</td>
+                      <td style={{ padding: '0.75rem', textAlign: 'right' }}>{triad.upside.unleveredIrr !== null ? formatPercent(triad.upside.unleveredIrr) : kpiLabels.notAvailable}</td>
                       <td style={{ padding: '0.75rem', textAlign: 'right', color: 'var(--danger)' }}>
                         {triad.stress.unleveredIrr !== null && triad.base.unleveredIrr !== null
                           ? `${((triad.stress.unleveredIrr - triad.base.unleveredIrr) * 100).toFixed(2)}pp`
-                          : 'N/A'}
+                          : kpiLabels.notAvailable}
                       </td>
                       <td style={{ padding: '0.75rem', textAlign: 'right', color: 'var(--success)' }}>
                         {triad.upside.unleveredIrr !== null && triad.base.unleveredIrr !== null
                           ? `+${((triad.upside.unleveredIrr - triad.base.unleveredIrr) * 100).toFixed(2)}pp`
-                          : 'N/A'}
+                          : kpiLabels.notAvailable}
                       </td>
                     </tr>
                     <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                      <td style={{ padding: '0.75rem' }}>Equity Multiple</td>
+                      <td style={{ padding: '0.75rem' }}>{t('financial.short.equityMultiple')}</td>
                       <td style={{ padding: '0.75rem', textAlign: 'right' }}>{triad.stress.equityMultiple.toFixed(2)}x</td>
                       <td style={{ padding: '0.75rem', textAlign: 'right', fontWeight: 600 }}>{triad.base.equityMultiple.toFixed(2)}x</td>
                       <td style={{ padding: '0.75rem', textAlign: 'right' }}>{triad.upside.equityMultiple.toFixed(2)}x</td>
@@ -278,19 +311,19 @@ export function ComparisonView({ currentInput, currentOutput }: ComparisonViewPr
                       <td style={{ padding: '0.75rem', textAlign: 'right', color: 'var(--success)' }}>+{(triad.upside.equityMultiple - triad.base.equityMultiple).toFixed(2)}x</td>
                     </tr>
                     <tr>
-                      <td style={{ padding: '0.75rem' }}>Payback Period</td>
-                      <td style={{ padding: '0.75rem', textAlign: 'right' }}>{triad.stress.paybackPeriod !== null ? `${triad.stress.paybackPeriod.toFixed(1)}y` : 'N/A'}</td>
-                      <td style={{ padding: '0.75rem', textAlign: 'right', fontWeight: 600 }}>{triad.base.paybackPeriod !== null ? `${triad.base.paybackPeriod.toFixed(1)}y` : 'N/A'}</td>
-                      <td style={{ padding: '0.75rem', textAlign: 'right' }}>{triad.upside.paybackPeriod !== null ? `${triad.upside.paybackPeriod.toFixed(1)}y` : 'N/A'}</td>
+                      <td style={{ padding: '0.75rem' }}>{t('financial.short.paybackPeriod')}</td>
+                      <td style={{ padding: '0.75rem', textAlign: 'right' }}>{triad.stress.paybackPeriod !== null ? `${triad.stress.paybackPeriod.toFixed(1)}${kpiLabels.yearsShort}` : kpiLabels.notAvailable}</td>
+                      <td style={{ padding: '0.75rem', textAlign: 'right', fontWeight: 600 }}>{triad.base.paybackPeriod !== null ? `${triad.base.paybackPeriod.toFixed(1)}${kpiLabels.yearsShort}` : kpiLabels.notAvailable}</td>
+                      <td style={{ padding: '0.75rem', textAlign: 'right' }}>{triad.upside.paybackPeriod !== null ? `${triad.upside.paybackPeriod.toFixed(1)}${kpiLabels.yearsShort}` : kpiLabels.notAvailable}</td>
                       <td style={{ padding: '0.75rem', textAlign: 'right', color: triad.stress.paybackPeriod !== null && triad.base.paybackPeriod !== null ? 'var(--danger)' : 'var(--text-secondary)' }}>
                         {triad.stress.paybackPeriod !== null && triad.base.paybackPeriod !== null
-                          ? `+${(triad.stress.paybackPeriod - triad.base.paybackPeriod).toFixed(1)}y`
-                          : 'N/A'}
+                          ? `+${(triad.stress.paybackPeriod - triad.base.paybackPeriod).toFixed(1)}${kpiLabels.yearsShort}`
+                          : kpiLabels.notAvailable}
                       </td>
                       <td style={{ padding: '0.75rem', textAlign: 'right', color: triad.upside.paybackPeriod !== null && triad.base.paybackPeriod !== null ? 'var(--success)' : 'var(--text-secondary)' }}>
                         {triad.upside.paybackPeriod !== null && triad.base.paybackPeriod !== null
-                          ? `${(triad.upside.paybackPeriod - triad.base.paybackPeriod).toFixed(1)}y`
-                          : 'N/A'}
+                          ? `${(triad.upside.paybackPeriod - triad.base.paybackPeriod).toFixed(1)}${kpiLabels.yearsShort}`
+                          : kpiLabels.notAvailable}
                       </td>
                     </tr>
                   </tbody>
@@ -305,20 +338,18 @@ export function ComparisonView({ currentInput, currentOutput }: ComparisonViewPr
       {mode === 'snapshot' && (
         <>
           {!hasSnapshot ? (
-            <SectionCard title="Get Started">
+            <SectionCard title={t('comparison.snapshot.ctaTitle')}>
               <div style={{ textAlign: 'center', padding: '3rem' }}>
                 <Camera size={48} style={{ color: 'var(--text-secondary)', marginBottom: '1rem' }} />
-                <h3 style={{ margin: '0 0 0.5rem 0', fontFamily: 'var(--font-display)' }}>No Snapshot Saved</h3>
-                <p style={{ color: 'var(--text-secondary)', margin: '0 0 1.5rem 0' }}>
-                  Save your current scenario as "Scenario A" to compare against future changes.
-                </p>
+                <h3 style={{ margin: '0 0 0.5rem 0', fontFamily: 'var(--font-display)' }}>{t('comparison.snapshot.emptyTitle')}</h3>
+                <p style={{ color: 'var(--text-secondary)', margin: '0 0 1.5rem 0' }}>{t('comparison.snapshot.emptyDescription')}</p>
                 <button
                   onClick={handleSaveSnapshot}
                   className="btn btn-primary"
                   disabled={!currentInput}
                 >
                   <Camera size={16} style={{ marginRight: '0.5rem' }} />
-                  Save Current as Scenario A
+                  {t('comparison.snapshot.saveButton')}
                 </button>
               </div>
             </SectionCard>
@@ -329,7 +360,7 @@ export function ComparisonView({ currentInput, currentOutput }: ComparisonViewPr
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid var(--border)', paddingBottom: '0.75rem' }}>
                   <div>
                     <h3 style={{ margin: 0, fontFamily: 'var(--font-display)', fontSize: '1.125rem' }}>
-                      Scenario A (Saved)
+                      {t('comparison.snapshot.savedTitle')}
                     </h3>
                     <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
                       {new Date(snapshot.savedAt).toLocaleString()}
@@ -338,36 +369,46 @@ export function ComparisonView({ currentInput, currentOutput }: ComparisonViewPr
                   <button
                     onClick={clearSnapshot}
                     style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', padding: '0.25rem' }}
-                    title="Clear snapshot"
+                    title={t('comparison.snapshot.clearTooltip')}
                   >
                     <Trash2 size={16} />
                   </button>
                 </div>
-                <KpiDisplay kpis={snapshot.kpis} />
+                <KpiDisplay kpis={snapshot.kpis} labels={kpiLabels} />
               </div>
 
               {/* Delta Column */}
               <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', gap: '1.5rem', paddingTop: '3rem' }}>
-                <DeltaIndicator label="NPV" delta={formatDelta(liveKpis?.npv ?? null, snapshot.kpis.npv)} />
-                <DeltaIndicator label="IRR" delta={formatDelta(liveKpis?.unleveredIrr ?? null, snapshot.kpis.unleveredIrr)} />
-                <DeltaIndicator label="EM" delta={formatDelta(liveKpis?.equityMultiple ?? null, snapshot.kpis.equityMultiple)} />
+                <DeltaIndicator
+                  label={t('financial.short.npv')}
+                  delta={formatDelta(liveKpis?.npv ?? null, snapshot.kpis.npv)}
+                  prefix={t('comparison.deltaPrefix')}
+                />
+                <DeltaIndicator
+                  label={t('financial.short.unleveredIrr')}
+                  delta={formatDelta(liveKpis?.unleveredIrr ?? null, snapshot.kpis.unleveredIrr)}
+                  prefix={t('comparison.deltaPrefix')}
+                />
+                <DeltaIndicator
+                  label={t('financial.short.equityMultiple')}
+                  delta={formatDelta(liveKpis?.equityMultiple ?? null, snapshot.kpis.equityMultiple)}
+                  prefix={t('comparison.deltaPrefix')}
+                />
               </div>
 
               {/* Current (Live) */}
               <div className="card" style={{ padding: '1.5rem', border: '2px solid var(--primary)' }}>
                 <div style={{ marginBottom: '1rem', borderBottom: '1px solid var(--border)', paddingBottom: '0.75rem' }}>
                   <h3 style={{ margin: 0, fontFamily: 'var(--font-display)', fontSize: '1.125rem', color: 'var(--primary)' }}>
-                    Current (Live)
+                    {t('comparison.snapshot.currentTitle')}
                   </h3>
-                  <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                    Real-time model output
-                  </p>
+                  <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{t('comparison.snapshot.currentSubtitle')}</p>
                 </div>
                 {liveKpis ? (
-                  <KpiDisplay kpis={liveKpis} />
+                  <KpiDisplay kpis={liveKpis} labels={kpiLabels} />
                 ) : (
                   <div style={{ color: 'var(--text-secondary)', fontStyle: 'italic' }}>
-                    No live output available
+                    {t('comparison.snapshot.noLiveResults')}
                   </div>
                 )}
               </div>
@@ -379,7 +420,7 @@ export function ComparisonView({ currentInput, currentOutput }: ComparisonViewPr
       {/* LIBRARY MODE */}
       {mode === 'library' && (
         <>
-          <SectionCard title="Select Scenarios (max 3)">
+          <SectionCard title={t('comparison.library.selectionTitle')}>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem' }}>
               {scenarios.map((scenario) => {
                 const isSelected = selectedScenarioIds.includes(scenario.id);
@@ -408,14 +449,14 @@ export function ComparisonView({ currentInput, currentOutput }: ComparisonViewPr
               })}
               {scenarios.length === 0 && (
                 <div style={{ padding: '1rem', color: 'var(--text-secondary)' }}>
-                  No scenarios in library. Save scenarios first.
+                  {t('comparison.library.empty')}
                 </div>
               )}
             </div>
           </SectionCard>
 
           {comparisonData.length > 0 && (
-            <SectionCard title="KPI Comparison">
+            <SectionCard title={t('comparison.library.kpiComparison')}>
               {/* Identical Scenarios Warning */}
               {comparisonData.length > 1 && comparisonData.some((d, i) =>
                 comparisonData.some((other, j) => i !== j && d.kpis.npv === other.kpis.npv)
@@ -432,7 +473,7 @@ export function ComparisonView({ currentInput, currentOutput }: ComparisonViewPr
                     color: 'var(--warning)'
                   }}>
                     <AlertTriangle size={16} />
-                    <span style={{ fontSize: '0.875rem' }}>Warning: Some scenarios appear to have identical inputs.</span>
+                    <span style={{ fontSize: '0.875rem' }}>{t('comparison.library.identicalWarning')}</span>
                   </div>
                 )}
 
@@ -457,9 +498,13 @@ export function ComparisonView({ currentInput, currentOutput }: ComparisonViewPr
                     >
                       <h3 style={{ margin: '0 0 1rem 0', fontSize: '1.125rem', fontWeight: 600, borderBottom: '1px solid var(--border)', paddingBottom: '0.75rem' }}>
                         {data.scenario.name}
-                        {isBase && <span style={{ fontSize: '0.75rem', color: 'var(--primary)', marginLeft: '0.5rem' }}>(Base)</span>}
+                        {isBase && (
+                          <span style={{ fontSize: '0.75rem', color: 'var(--primary)', marginLeft: '0.5rem' }}>
+                            ({t('common.base')})
+                          </span>
+                        )}
                       </h3>
-                      <KpiDisplay kpis={data.kpis} />
+                      <KpiDisplay kpis={data.kpis} labels={kpiLabels} />
                     </div>
                   );
                 })}
@@ -473,13 +518,30 @@ export function ComparisonView({ currentInput, currentOutput }: ComparisonViewPr
 }
 
 // KPI Display Component
-function KpiDisplay({ kpis }: { kpis: ProjectKpis }) {
+function KpiDisplay({
+  kpis,
+  labels,
+}: {
+  kpis: ProjectKpis;
+  labels: {
+    npv: string;
+    unleveredIrr: string;
+    equityMultiple: string;
+    paybackPeriod: string;
+    years: string;
+    yearsShort: string;
+    notAvailable: string;
+  };
+}) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-      <KpiRow label="NPV" value={formatCurrency(kpis.npv)} />
-      <KpiRow label="Unlevered IRR" value={kpis.unleveredIrr !== null ? formatPercent(kpis.unleveredIrr) : 'N/A'} />
-      <KpiRow label="Equity Multiple" value={`${kpis.equityMultiple.toFixed(2)}x`} />
-      <KpiRow label="Payback Period" value={kpis.paybackPeriod !== null ? `${kpis.paybackPeriod.toFixed(1)} years` : 'N/A'} />
+      <KpiRow label={labels.npv} value={formatCurrency(kpis.npv)} />
+      <KpiRow label={labels.unleveredIrr} value={kpis.unleveredIrr !== null ? formatPercent(kpis.unleveredIrr) : labels.notAvailable} />
+      <KpiRow label={labels.equityMultiple} value={`${kpis.equityMultiple.toFixed(2)}x`} />
+      <KpiRow
+        label={labels.paybackPeriod}
+        value={kpis.paybackPeriod !== null ? `${kpis.paybackPeriod.toFixed(1)} ${labels.years}` : labels.notAvailable}
+      />
     </div>
   );
 }
@@ -498,12 +560,20 @@ function KpiRow({ label, value }: { label: string; value: string }) {
 }
 
 // Delta Indicator Component
-function DeltaIndicator({ label, delta }: { label: string; delta: { value: string; color: string; icon: 'up' | 'down' | 'same' } }) {
+function DeltaIndicator({
+  label,
+  delta,
+  prefix = 'Δ',
+}: {
+  label: string;
+  delta: { value: string; color: string; icon: 'up' | 'down' | 'same' };
+  prefix?: string;
+}) {
   const Icon = delta.icon === 'up' ? ArrowUp : delta.icon === 'down' ? ArrowDown : Minus;
   return (
     <div style={{ textAlign: 'center' }}>
       <div style={{ fontSize: '0.6875rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-secondary)', marginBottom: '0.25rem' }}>
-        Δ {label}
+        {prefix} {label}
       </div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.25rem', color: delta.color, fontWeight: 600, fontSize: '0.875rem' }}>
         <Icon size={14} />
