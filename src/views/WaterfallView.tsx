@@ -142,7 +142,7 @@ interface WaterfallViewProps {
 }
 
 export function WaterfallView({ waterfall, waterfallConfig, onWaterfallConfigChange, hasActiveOperations }: WaterfallViewProps) {
-    const { t } = useTranslation();
+    const { t, language } = useTranslation();
 
     if (hasActiveOperations === false) {
         return (
@@ -373,7 +373,7 @@ export function WaterfallView({ waterfall, waterfallConfig, onWaterfallConfigCha
                             <div>
                                 <div style={styles.metricLabel}>{t('financial.irr')}</div>
                                 <div style={styles.metricValue}>
-                                    {formatPercent(partner.irr)}
+                                    {formatPercent(partner.irr, language)}
                                 </div>
                             </div>
                             <div>
