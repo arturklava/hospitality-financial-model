@@ -27,6 +27,7 @@ const VARIABLE_OPTIONS: SensitivityVariable[] = [
 export function SensitivityPanel({ baseScenario, baseOutput }: SensitivityPanelProps) {
   const { t, language } = useTranslation();
   const lang = language as SupportedLocale;
+  const isPortuguese = language === 'pt';
 
   const { runSensitivity, isLoading, progress, error: workerError } = useSensitivityWorker();
 
@@ -97,6 +98,13 @@ export function SensitivityPanel({ baseScenario, baseOutput }: SensitivityPanelP
           <PlayCircle size={18} />
           {t('analysis.sensitivity.runAnalysis')}
         </button>
+      </div>
+
+      <div className="mb-4 rounded-md border border-border bg-surface-hover p-4 text-sm text-secondary">
+        <ul className="list-disc space-y-1 pl-5">
+          <li>{isPortuguese ? 'Escolha as variáveis X e Y' : 'Choose X and Y variables'}</li>
+          <li>{isPortuguese ? 'Clique em Executar para gerar a tabela de sensibilidade' : 'Click Run to generate the sensitivity table'}</li>
+        </ul>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">

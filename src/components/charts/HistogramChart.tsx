@@ -17,6 +17,7 @@ import {
   ReferenceArea,
   Cell,
 } from 'recharts';
+import { useTranslation } from '../../contexts/LanguageContext';
 
 interface HistogramChartProps {
   data: Array<{
@@ -40,13 +41,19 @@ interface HistogramChartProps {
 export function HistogramChart({
   data,
   xAxisLabel = 'IRR Buckets',
-  yAxisLabel = 'Frequency',
+  yAxisLabel,
+  height,
   mean,
   var95,
   zeroValue,
   lossThreshold
 }: HistogramChartProps) {
-    
+    const { t, language } = useTranslation();
+    const isPortuguese = language === 'pt';
+    const resolvedHeight = height ?? 400;
+    const frequencyLabel = yAxisLabel ?? (isPortuguese ? 'Frequência' : 'Frequency');
+    const percentileLabel = isPortuguese ? 'Percentil' : 'Percentile';
+
     // Custom tooltip to show percentile info
     interface TooltipProps {
       active?: boolean;
@@ -70,10 +77,10 @@ export function HistogramChart({
             boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
           }}>
             <p style={{ margin: 0, fontWeight: 600 }}>{`${data.bucket}`}</p>
-            <p style={{ margin: '4px 0 0 0' }}>{`Frequency: ${data.frequency}`}</p>
+            <p style={{ margin: '4px 0 0 0' }}>{`${frequencyLabel}: ${data.frequency}`}</p>
             {data.percentile !== undefined && (
               <p style={{ margin: '4px 0 0 0', fontSize: '0.9em', color: '#666' }}>
-                {`Percentile: ${data.percentile.toFixed(1)}%`}
+                {`${percentileLabel}: ${data.percentile.toFixed(1)}%`}
               </p>
             )}
           </div>
@@ -114,22 +121,22 @@ export function HistogramChart({
 
   // Validate data
   const hasValidData = data && data.length > 0;
-  
+
   if (!hasValidData) {
     return (
-      <div style={{ width: '100%', height: '400px', minHeight: '400px' }}>
+      <div style={{ width: '100%', height: `${resolvedHeight}px`, minHeight: `${resolvedHeight}px` }}>
         <div className="flex items-center justify-center h-full text-slate-400">
-          No Data Available
+          {t('common.noDataAvailable')}
         </div>
       </div>
     );
   }
 
   return (
-    <div style={{ width: '100%', height: '400px', minHeight: '400px' }}>
+    <div style={{ width: '100%', height: `${resolvedHeight}px`, minHeight: `${resolvedHeight}px` }}>
       <ResponsiveContainer width="100%" height="100%">
-        <BarChart 
-          data={data} 
+        <BarChart
+          data={data}
           margin={{ top: 20, right: 30, left: 100, bottom: 5 }}
         >
           <CartesianGrid strokeDasharray="3 3" />
@@ -149,10 +156,10 @@ export function HistogramChart({
               fontFamily: 'var(--font-body, "Montserrat", sans-serif)',
             }}
           />
-          <YAxis 
-            label={{ 
-              value: yAxisLabel, 
-              angle: -90, 
+          <YAxis
+            label={{
+              value: frequencyLabel,
+              angle: -90,
               position: 'left',
               offset: 0,
               fill: 'var(--text-secondary)',
@@ -237,7 +244,7 @@ export function HistogramChart({
               stroke="#2196F3"
               strokeWidth={2}
               strokeDasharray="5 5"
-              label={{ value: 'Mean', position: 'top', fill: '#2196F3' }}
+              label={{ value: isPortuguese ? 'Média' : 'Mean', position: 'top', fill: '#2196F3' }}
             />
           )}
           {varBucket && (
@@ -255,7 +262,7 @@ export function HistogramChart({
               stroke="#000"
               strokeWidth={2}
               strokeDasharray="3 3"
-              label={{ value: 'Zero NPV', position: 'top', fill: '#000' }}
+              label={{ value: isPortuguese ? 'Zero' : 'Zero', position: 'top', fill: '#000' }}
             />
           )}
         </BarChart>
