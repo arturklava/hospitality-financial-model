@@ -27,6 +27,7 @@ export function OperationsView({
   const [selectedOperationId, setSelectedOperationId] = useState<string | null>(
     operations.length > 0 ? operations[0].id : null
   );
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   // Update selected operation when operations list changes
   useEffect(() => {
@@ -40,6 +41,15 @@ export function OperationsView({
       setSelectedOperationId(null);
     }
   }, [operations, selectedOperationId]);
+
+  useEffect(() => {
+    setSelectedIds((prev) => {
+      const validIds = new Set(
+        [...prev].filter((id) => operations.some((op) => op.id === id))
+      );
+      return validIds.size === prev.size ? prev : validIds;
+    });
+  }, [operations]);
 
   const selectedOperation = operations.find((op) => op.id === selectedOperationId);
 
@@ -74,14 +84,56 @@ export function OperationsView({
     }
   };
 
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
 
+  const clearSelection = () => setSelectedIds(new Set());
+
+  const selectAll = () => setSelectedIds(new Set(operations.map((op) => op.id)));
+
+  const handleBulkStatusChange = (isActive: boolean) => {
+    if (!onOperationsChange || selectedIds.size === 0) return;
+
+    const selectedSet = new Set(selectedIds);
+    const updatedOperations: OperationConfig[] = operations.map((op) =>
+      selectedSet.has(op.id) ? { ...op, isActive } : op
+    );
+
+    onOperationsChange(updatedOperations);
+  };
+
+  const handleBulkDelete = () => {
+    if (!onRemoveOperation || selectedIds.size === 0) return;
+
+    const idsToRemove = Array.from(selectedIds);
+    if (!confirm(`Remove ${idsToRemove.length} assets?`)) return;
+
+    idsToRemove.forEach((id) => onRemoveOperation(id));
+    clearSelection();
+  };
 
   // Master Panel: OperationList
   const masterPanel = (
     <OperationList
       operations={operations}
       selectedOperationId={selectedOperationId}
+      selectedIds={selectedIds}
       onSelectOperation={setSelectedOperationId}
+      onToggleSelect={toggleSelect}
+      onSelectAll={selectAll}
+      onClearSelection={clearSelection}
+      onBulkActivate={() => handleBulkStatusChange(true)}
+      onBulkDeactivate={() => handleBulkStatusChange(false)}
+      onBulkDelete={handleBulkDelete}
       onAddAsset={onAddOperation ? handleAddAsset : undefined}
 
       onRemoveOperation={onRemoveOperation}
@@ -242,10 +294,12 @@ export function OperationsView({
   );
 
   return (
-    <MasterDetailLayout
-      master={masterPanel}
-      detail={detailPanel}
-      masterWidth="300px"
-    />
+    <div style={{ marginLeft: '-2rem', marginRight: '-2rem' }}>
+      <MasterDetailLayout
+        master={masterPanel}
+        detail={detailPanel}
+        masterWidth="300px"
+      />
+    </div>
   );
 }
