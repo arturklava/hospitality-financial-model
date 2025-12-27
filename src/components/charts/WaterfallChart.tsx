@@ -16,6 +16,7 @@ import {
 } from 'recharts';
 import type { WaterfallResult } from '@domain/types';
 import { NoDataState } from './NoDataState';
+import { useTranslation } from '../../contexts/LanguageContext';
 
 interface WaterfallChartProps {
   waterfallResult: WaterfallResult;
@@ -23,11 +24,19 @@ interface WaterfallChartProps {
 }
 
 export function WaterfallChart({ waterfallResult }: WaterfallChartProps) {
+  const { t } = useTranslation();
+
   // Validate data
   const hasValidData = waterfallResult?.annualRows && waterfallResult.annualRows.length > 0;
 
   if (!hasValidData) {
-    return <NoDataState height={400} message="No Waterfall Data" description="Configure waterfall tiers to see distributions" />;
+    return (
+      <NoDataState
+        height={400}
+        message={t('charts.waterfall.noDataTitle')}
+        description={t('charts.waterfall.noDataDescription')}
+      />
+    );
   }
 
   // Prepare data for the chart

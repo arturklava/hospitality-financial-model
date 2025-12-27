@@ -130,6 +130,20 @@ export const translations = {
         'actions.run': 'Executar',
 
         // ========================================
+        // Charts & Empty States
+        // ========================================
+        'charts.noData.title': 'Sem dados para exibir',
+        'charts.noData.genericDescription': 'Sem dados disponíveis para este gráfico.',
+        'charts.capital.noDataTitle': 'Sem dados de capital',
+        'charts.capital.noDataDescription': 'Nenhuma estrutura de capital configurada para exibir o gráfico.',
+        'charts.cashflow.noDataTitle': 'Sem dados financeiros',
+        'charts.cashflow.noDataDescription': 'Sem dados suficientes para gerar o perfil de fluxo de caixa.',
+        'charts.waterfall.noDataTitle': 'Sem dados de waterfall',
+        'charts.waterfall.noDataDescription': 'Nenhum waterfall disponível; execute ou configure o modelo para ver as distribuições.',
+        'charts.distribution.noDataTitle': 'Sem dados de distribuição',
+        'charts.distribution.noDataDescription': 'Nenhum resultado de distribuição disponível para LP/GP.',
+
+        // ========================================
         // Header
         // ========================================
         'header.manageScenarios': 'Gerenciar Cenários',
@@ -882,6 +896,20 @@ export const translations = {
         'actions.viewDetails': 'View Details',
         'actions.configure': 'Configure',
         'actions.run': 'Run',
+
+        // ========================================
+        // Charts & Empty States
+        // ========================================
+        'charts.noData.title': 'No data to display',
+        'charts.noData.genericDescription': 'No data available for this chart.',
+        'charts.capital.noDataTitle': 'No capital data',
+        'charts.capital.noDataDescription': 'No capital stack configured to display the chart.',
+        'charts.cashflow.noDataTitle': 'No financial data',
+        'charts.cashflow.noDataDescription': 'No sufficient inputs to generate the cash flow profile.',
+        'charts.waterfall.noDataTitle': 'No waterfall data',
+        'charts.waterfall.noDataDescription': 'No waterfall available; run or configure the model to see distributions.',
+        'charts.distribution.noDataTitle': 'No distribution data',
+        'charts.distribution.noDataDescription': 'No LP/GP distribution results available.',
 
         // ========================================
         // Header

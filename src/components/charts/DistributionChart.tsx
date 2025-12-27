@@ -19,6 +19,7 @@ import { Download } from 'lucide-react';
 import type { WaterfallResult } from '../../domain/types';
 import { formatCurrency } from '../../utils/formatters';
 import { NoDataState } from './NoDataState';
+import { useTranslation } from '../../contexts/LanguageContext';
 
 interface DistributionChartProps {
   waterfallResult: WaterfallResult;
@@ -26,13 +27,21 @@ interface DistributionChartProps {
 }
 
 export function DistributionChart({ waterfallResult }: DistributionChartProps) {
+  const { t } = useTranslation();
+
   const [isExporting, setIsExporting] = useState(false);
 
   // Validate data
   const hasValidData = waterfallResult?.annualRows && waterfallResult.annualRows.length > 0;
 
   if (!hasValidData) {
-    return <NoDataState height={400} message="No Distribution Data" description="Run the model to see LP/GP distributions" />;
+    return (
+      <NoDataState
+        height={400}
+        message={t('charts.distribution.noDataTitle')}
+        description={t('charts.distribution.noDataDescription')}
+      />
+    );
   }
 
   // Export data to CSV

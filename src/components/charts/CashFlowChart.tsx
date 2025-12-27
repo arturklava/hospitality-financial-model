@@ -20,6 +20,7 @@ import {
 import type { ConsolidatedAnnualPnl, LeveredFcf } from '@domain/types';
 
 import { NoDataState } from './NoDataState';
+import { useTranslation } from '../../contexts/LanguageContext';
 
 interface CashFlowChartProps {
   consolidatedPnl: ConsolidatedAnnualPnl[];
@@ -28,6 +29,8 @@ interface CashFlowChartProps {
 }
 
 export function CashFlowChart({ consolidatedPnl, leveredFcf }: CashFlowChartProps) {
+  const { t } = useTranslation();
+
   // Prepare data for the chart using USALI terminology
   const chartData = (consolidatedPnl || []).map((pnl) => {
     const levered = (leveredFcf || []).find((lf) => lf.yearIndex === pnl.yearIndex);
@@ -48,7 +51,12 @@ export function CashFlowChart({ consolidatedPnl, leveredFcf }: CashFlowChartProp
   );
 
   if (!hasValidData) {
-    return <NoDataState message="No financial data available" description="The model needs more inputs to generate a cash flow profile." />;
+    return (
+      <NoDataState
+        message={t('charts.cashflow.noDataTitle')}
+        description={t('charts.cashflow.noDataDescription')}
+      />
+    );
   }
 
   // Determine phases: Construction (first 2 years) vs Stabilization (rest)
